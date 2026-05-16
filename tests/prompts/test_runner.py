@@ -87,6 +87,7 @@ class TestDbAbstractionSkip:
         from installer.prompts.runner import _ask
 
         prompt = get_prompt("db_abstraction")
+        assert prompt is not None
         answers = Answers(db_driver="none")
         result = _ask(prompt, answers=answers)
         assert result == "none"
@@ -96,6 +97,7 @@ class TestDbAbstractionSkip:
         from installer.prompts.runner import _ask
 
         prompt = get_prompt("db_abstraction")
+        assert prompt is not None
         answers = Answers(db_driver="postgresql")
         with patch("installer.prompts.runner.questionary") as mock_q:
             mock_q.select.return_value.ask.return_value = "SQLAlchemy (ORM)"

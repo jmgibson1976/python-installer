@@ -1,6 +1,6 @@
 # AI and git tools
-.claude/
-.github/
+# .claude/
+# .github/
 .git/
 
 # Byte-compiled / optimized / DLL files
