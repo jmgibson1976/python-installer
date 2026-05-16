@@ -82,6 +82,12 @@ def new(
 
     answers = Answers()
 
+    # ── Early guard: check the base directory before asking anything ──────────
+    # When no explicit path is given, any project will land under CWD (or the
+    # --path dir). If that base is inside the installer tree, fail immediately.
+    base = Path(path).resolve() if path else Path.cwd()
+    _guard_installer_dir(base)
+
     if project_name:
         clean_name, target_path = _resolve_target(project_name.strip(), path)
         answers.project_name = clean_name

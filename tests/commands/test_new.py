@@ -68,6 +68,17 @@ class TestGuardInstallerDir:
         assert result.exit_code != 0
         assert "python-installer source" in result.output
 
+    def test_aborts_before_prompts_when_cwd_is_installer_root(self):
+        """Guard fires immediately — run_prompts must never be called."""
+        with (
+            patch("installer.commands.new.Path.cwd", return_value=_INSTALLER_ROOT),
+            patch("installer.commands.new.run_prompts", side_effect=_mock_run_prompts) as mock_prompts,
+        ):
+            result = runner.invoke(app, ["new"])
+        assert result.exit_code != 0
+        assert "python-installer source" in result.output
+        mock_prompts.assert_not_called()
+
 
 class TestNewCommand:
     def test_new_with_name_arg(self, tmp_path):
