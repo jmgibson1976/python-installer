@@ -1,0 +1,23 @@
+# {{ project_name }}
+
+A new Python project.
+
+## Getting Started
+
+```bash
+pip install -e ".[dev]"
+```
+
+## Running
+
+```bash
+python -m {{ pkg_name }}
+```
+{% if testing_frameworks %}
+
+## Testing
+
+```bash
+python -m pytest
+```
+{% endif %}

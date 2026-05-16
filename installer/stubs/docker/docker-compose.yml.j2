@@ -1,0 +1,35 @@
+services:
+  app:
+    build: .
+    container_name: {{ project_name }}
+    volumes:
+      - .:/app
+    {% if db_driver == "postgresql" %}
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://user:password@db:5432/{{ pkg_name }}
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: {{ pkg_name }}
+    ports:
+      - "5432:5432"
+    {% elif db_driver == "mysql" or db_driver == "mariadb" %}
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: mysql+pymysql://user:password@db:3306/{{ pkg_name }}
+  db:
+    image: {% if db_driver == "mariadb" %}mariadb:11{% else %}mysql:8{% endif %}
+
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: {{ pkg_name }}
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306"
+    {% endif %}

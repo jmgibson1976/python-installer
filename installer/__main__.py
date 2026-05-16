@@ -1,16 +1,25 @@
 import typer
-
 from dotenv import load_dotenv
 
+from installer.commands.new import new
+
 app = typer.Typer(
-    name="python-installer",
-    help="Python-Installer: new python project installer",
+    name="installer",
+    help="Python-Installer: scaffold a new Python project.",
     add_completion=False,
 )
 
-def main() -> None:
+app.command("new")(new)
+
+
+@app.callback()
+def _callback() -> None:
+    """Python-Installer: scaffold a new Python project."""
     load_dotenv()
-    typer.echo("Welcome to Python-Installer!")
+
+
+def main() -> None:
+    app()
 
 
 if __name__ == "__main__":
