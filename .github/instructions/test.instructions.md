@@ -71,4 +71,4 @@ Always add tests when:
 
 This project has no deprecated legacy code at this time. If functionality is removed or deprecated in the future:
 - Delete the corresponding tests rather than leaving them to fail silently.
-- If a prompt, command, or generator feature is intentionally removed, open a search for `test_<feature>` across `tests/` and remove or update every affected test before merging.
+- If a prompt, command, or generator feature is intentionally removed, search for `test_<feature>` across `tests/` and remove or update every affected test before merging.
