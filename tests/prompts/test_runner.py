@@ -37,7 +37,7 @@ class TestRunPrompts:
             "project_name": "test-app",
             "version": "0.1.0",
             "git": True,
-            "docker": False,
+            "docker": "venv",
             "db_driver": "none",
             "db_abstraction": "none",
             "testing_frameworks": ["pytest"],
@@ -58,7 +58,7 @@ class TestRunPrompts:
         assert result.project_name == "test-app"
         assert result.version == "0.1.0"
         assert result.git is True
-        assert result.docker is False
+        assert result.docker == "venv"
 
     def test_skips_name_prompt_when_already_set(self, tmp_path):
         path = tmp_path / "session.json"

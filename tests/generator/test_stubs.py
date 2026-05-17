@@ -21,15 +21,15 @@ class TestRenderStubs:
         assert (tmp_path / ".gitignore").exists()
 
     def test_dockerfile_created_when_docker_true(self, tmp_path):
-        render_stubs(_answers(docker=True), tmp_path)
+        render_stubs(_answers(docker="docker"), tmp_path)
         assert (tmp_path / "Dockerfile").exists()
 
     def test_docker_compose_created_when_docker_true(self, tmp_path):
-        render_stubs(_answers(docker=True), tmp_path)
+        render_stubs(_answers(docker="docker"), tmp_path)
         assert (tmp_path / "docker-compose.yml").exists()
 
     def test_dockerfile_not_created_when_docker_false(self, tmp_path):
-        render_stubs(_answers(docker=False), tmp_path)
+        render_stubs(_answers(docker="none"), tmp_path)
         assert not (tmp_path / "Dockerfile").exists()
 
     def test_readme_contains_project_name(self, tmp_path):
@@ -38,6 +38,6 @@ class TestRenderStubs:
         assert "my-app" in content
 
     def test_dockerfile_contains_pkg_name(self, tmp_path):
-        render_stubs(_answers(docker=True), tmp_path)
+        render_stubs(_answers(docker="docker"), tmp_path)
         content = (tmp_path / "Dockerfile").read_text()
         assert "my_app" in content

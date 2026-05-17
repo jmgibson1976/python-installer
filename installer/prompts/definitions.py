@@ -61,10 +61,10 @@ PROMPTS: list[PromptDef] = [
     ),
     PromptDef(
         key="docker",
-        prompt_type="confirm",
-        message="Should it run inside Docker?",
-        default=False,
-        required=True,
+        prompt_type="select",
+        message="How should the project run?",
+        default="venv",
+        choices=["none", "docker", "venv"],
     ),
     PromptDef(
         key="db_driver",

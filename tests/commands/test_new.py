@@ -16,7 +16,7 @@ def _mock_run_prompts(answers: Answers, skip_name: bool, temp_path: Path) -> Ans
         answers.project_name = "prompted-app"
     answers.version = "0.1.0"
     answers.git = False
-    answers.docker = False
+    answers.docker = "venv"
     answers.db_driver = "none"
     answers.db_abstraction = "none"
     answers.testing_frameworks = ["pytest"]

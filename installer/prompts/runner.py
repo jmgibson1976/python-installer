@@ -61,7 +61,14 @@ _OPT_DEP_LABELS: dict[str, str] = {
     "detect-secrets": "detect-secrets",
 }
 
+_DOCKER_LABELS: dict[str, str] = {
+    "none": "None (no runtime environment)",
+    "docker": "Docker",
+    "venv": "Python virtual environment (venv)",
+}
+
 _CHOICE_LABELS: dict[str, dict[str, str]] = {
+    "docker": _DOCKER_LABELS,
     "db_driver": _DB_DRIVER_LABELS,
     "db_abstraction": _DB_ABSTRACTION_LABELS,
     "testing_frameworks": _TESTING_LABELS,
@@ -107,6 +114,7 @@ def _ask(prompt: PromptDef, skip_name: bool = False, answers: Optional["Answers"
         return questionary.confirm(
             message=prompt.message,
             default=bool(prompt.default),
+            auto_enter=False,
         ).ask()
 
     if prompt.prompt_type == "select":

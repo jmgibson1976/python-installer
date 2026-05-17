@@ -67,5 +67,14 @@ class TestPromptRegistry:
     def test_get_prompt_returns_none_for_unknown(self):
         assert get_prompt("nonexistent_key") is None
 
+    def test_docker_prompt_is_select_with_venv_default(self):
+        p = get_prompt("docker")
+        assert p is not None
+        assert p.prompt_type == "select"
+        assert p.default == "venv"
+        assert "docker" in p.choices
+        assert "venv" in p.choices
+        assert "none" in p.choices
+
     def test_eleven_prompts_defined(self):
         assert len(PROMPTS) == 11

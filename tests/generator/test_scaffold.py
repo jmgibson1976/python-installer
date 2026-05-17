@@ -50,7 +50,7 @@ class TestCreateProject:
         assert not (root / ".env.example").exists()
 
     def test_creates_dockerfile_when_docker(self, tmp_path):
-        a = _answers(target_path=str(tmp_path / "test-proj"), git=False, docker=True)
+        a = _answers(target_path=str(tmp_path / "test-proj"), git=False, docker="docker")
         root = create_project(a)
         assert (root / "Dockerfile").exists()
 

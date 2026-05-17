@@ -15,7 +15,7 @@ class Answers:
 
     # Infrastructure
     git: bool = True
-    docker: bool = False
+    docker: str = "venv"
 
     # Data layer
     db_driver: str = "none"
