@@ -20,6 +20,18 @@ class TestRenderStubs:
         render_stubs(_answers(), tmp_path)
         assert (tmp_path / ".gitignore").exists()
 
+    def test_env_example_always_created(self, tmp_path):
+        render_stubs(_answers(env_parsing="python-dotenv"), tmp_path)
+        assert (tmp_path / ".env.example").exists()
+
+    def test_env_example_contains_app_port(self, tmp_path):
+        render_stubs(_answers(env_parsing="python-dotenv"), tmp_path)
+        assert "APP_PORT" in (tmp_path / ".env.example").read_text()
+
+    def test_env_example_not_created_when_env_parsing_none(self, tmp_path):
+        render_stubs(_answers(env_parsing="none"), tmp_path)
+        assert not (tmp_path / ".env.example").exists()
+
     def test_dockerfile_not_created_when_docker_none(self, tmp_path):
         render_stubs(_answers(docker="none"), tmp_path)
         assert not (tmp_path / "docker" / "runtimes" / "3.13" / "Dockerfile").exists()
@@ -32,6 +44,29 @@ class TestRenderStubs:
         render_stubs(_answers(), tmp_path)
         content = (tmp_path / "README.md").read_text()
         assert "my-app" in content
+
+    def test_readme_venv_shows_venv_instructions(self, tmp_path):
+        render_stubs(_answers(docker="venv"), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "python -m venv" in content
+        assert "docker compose" not in content
+
+    def test_readme_docker_shows_compose_instructions(self, tmp_path):
+        render_stubs(_answers(docker="docker"), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "docker compose up --build" in content
+        assert "python -m venv" not in content
+
+    def test_readme_docker_shows_env_copy_step(self, tmp_path):
+        render_stubs(_answers(docker="docker"), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert ".env.example" in content
+
+    def test_readme_docker_testing_uses_compose(self, tmp_path):
+        render_stubs(_answers(docker="docker", testing_frameworks=["pytest"]), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "docker compose run" in content
+        assert "pytest" in content
 
 
 class TestDockerStubs:
@@ -109,4 +144,49 @@ class TestDockerStubs:
         render_stubs(_answers(docker="docker"), tmp_path)
         content = (tmp_path / "docker-compose.yml").read_text()
         assert "docker/runtimes/3.13/Dockerfile" in content
+
+
+class TestEnvExampleStub:
+    def _env_answers(self, **kwargs) -> Answers:
+        return _answers(env_parsing="python-dotenv", **kwargs)
+
+    def test_no_db_vars_when_driver_none(self, tmp_path):
+        render_stubs(self._env_answers(db_driver="none"), tmp_path)
+        content = (tmp_path / ".env.example").read_text()
+        assert "DATABASE_URL" not in content
+        assert "DB_NAME" not in content
+
+    def test_postgresql_vars_present(self, tmp_path):
+        render_stubs(self._env_answers(db_driver="postgresql"), tmp_path)
+        content = (tmp_path / ".env.example").read_text()
+        assert "DATABASE_URL=postgresql://" in content
+        assert "DB_USER" in content
+        assert "DB_PASSWORD" in content
+
+    def test_mysql_vars_present(self, tmp_path):
+        render_stubs(self._env_answers(db_driver="mysql"), tmp_path)
+        content = (tmp_path / ".env.example").read_text()
+        assert "DATABASE_URL=mysql+pymysql://" in content
+        assert "DB_ROOT_PASSWORD" in content
+
+    def test_mssql_vars_present(self, tmp_path):
+        render_stubs(self._env_answers(db_driver="mssql"), tmp_path)
+        content = (tmp_path / ".env.example").read_text()
+        assert "DATABASE_URL=mssql+pyodbc://" in content
+
+    def test_nosql_vars_present(self, tmp_path):
+        render_stubs(self._env_answers(db_driver="nosql"), tmp_path)
+        content = (tmp_path / ".env.example").read_text()
+        assert "MONGO_URI" in content
+        assert "27017" in content
+
+    def test_forward_db_port_included_when_docker_and_db(self, tmp_path):
+        render_stubs(self._env_answers(docker="docker", db_driver="postgresql"), tmp_path)
+        content = (tmp_path / ".env.example").read_text()
+        assert "FORWARD_DB_PORT" in content
+
+    def test_forward_db_port_excluded_when_no_docker(self, tmp_path):
+        render_stubs(self._env_answers(docker="none", db_driver="postgresql"), tmp_path)
+        content = (tmp_path / ".env.example").read_text()
+        assert "FORWARD_DB_PORT" not in content
 
