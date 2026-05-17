@@ -108,6 +108,53 @@ class TestNewCommand:
             result = runner.invoke(app, ["new", "my-app", "--path", str(tmp_path)])
         assert "my-app" in result.output
 
+    def test_success_output_venv_shows_venv_steps(self, tmp_path):
+        def _venv_answers(answers, skip_name, temp_path):
+            _mock_run_prompts(answers, skip_name, temp_path)
+            answers.docker = "venv"
+            return answers
+
+        with (
+            patch("installer.commands.new.run_prompts", side_effect=_venv_answers),
+            patch("installer.commands.new.create_project") as mock_create,
+        ):
+            mock_create.return_value = tmp_path / "my-app"
+            result = runner.invoke(app, ["new", "my-app", "--path", str(tmp_path)])
+        assert "python -m venv" in result.output
+        assert "docker compose" not in result.output
+
+    def test_success_output_docker_shows_compose_steps(self, tmp_path):
+        def _docker_answers(answers, skip_name, temp_path):
+            _mock_run_prompts(answers, skip_name, temp_path)
+            answers.docker = "docker"
+            return answers
+
+        with (
+            patch("installer.commands.new.run_prompts", side_effect=_docker_answers),
+            patch("installer.commands.new.create_project") as mock_create,
+        ):
+            mock_create.return_value = tmp_path / "my-app"
+            result = runner.invoke(app, ["new", "my-app", "--path", str(tmp_path)])
+        assert "docker compose up --build" in result.output
+        assert ".env.example" in result.output
+        assert "python -m venv" not in result.output
+
+    def test_success_output_none_shows_pip_steps(self, tmp_path):
+        def _none_answers(answers, skip_name, temp_path):
+            _mock_run_prompts(answers, skip_name, temp_path)
+            answers.docker = "none"
+            return answers
+
+        with (
+            patch("installer.commands.new.run_prompts", side_effect=_none_answers),
+            patch("installer.commands.new.create_project") as mock_create,
+        ):
+            mock_create.return_value = tmp_path / "my-app"
+            result = runner.invoke(app, ["new", "my-app", "--path", str(tmp_path)])
+        assert "pip install" in result.output
+        assert "docker compose" not in result.output
+        assert "python -m venv" not in result.output
+
     def test_target_uses_explicit_path(self, tmp_path):
         captured = {}
 

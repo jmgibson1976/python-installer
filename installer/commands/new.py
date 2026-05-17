@@ -116,7 +116,7 @@ def new(
         with console.status("[bold green]Scaffolding your project…[/bold green]"):
             project_root = create_project(answers)
 
-        _print_success(answers.project_name, project_root)
+        _print_success(answers, project_root)
 
     finally:
         try:
@@ -137,12 +137,12 @@ def _print_banner() -> None:
     console.print()
 
 
-def _print_success(project_name: str, project_root: Path) -> None:
+def _print_success(answers: Answers, project_root: Path) -> None:
     console.print()
     msg = Text.assemble(
         ("✔ ", "bold green"),
         ("Project ", ""),
-        (project_name, "bold cyan"),
+        (answers.project_name, "bold cyan"),
         (" created at ", ""),
         (str(project_root), "bold white"),
     )
@@ -150,5 +150,17 @@ def _print_success(project_name: str, project_root: Path) -> None:
     console.print()
     console.print("  [dim]Next steps:[/dim]")
     console.print(f"    [bold]cd {project_root}[/bold]")
-    console.print("    [bold]pip install -e \".[dev]\"[/bold]")
+
+    if answers.docker == "docker":
+        console.print("    [bold]cp .env.example .env[/bold]")
+        console.print("    [bold]docker compose up --build[/bold]")
+    elif answers.docker == "venv":
+        console.print("    [bold]python -m venv .venv[/bold]")
+        console.print("    [bold]source .venv/bin/activate[/bold]  [dim]# Windows: .venv\\Scripts\\activate[/dim]")
+        console.print("    [bold]pip install -e \".[dev]\"[/bold]")
+        console.print("    [bold]python -m " + answers.project_name.replace("-", "_") + "[/bold]")
+    else:
+        console.print("    [bold]pip install -e \".[dev]\"[/bold]")
+        console.print("    [bold]python -m " + answers.project_name.replace("-", "_") + "[/bold]")
+
     console.print()
