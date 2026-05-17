@@ -46,7 +46,8 @@ def render_stubs(answers: Answers, project_root: Path) -> None:
       - .gitignore
 
     Conditionally rendered:
-      - Dockerfile + docker-compose.yml  (when docker="docker")
+      - docker/runtimes/3.13/Dockerfile  (when docker="docker")
+      - docker-compose.yml               (when docker="docker")
     """
     env = _jinja_env(_STUBS_DIR)
     context = _stub_context(answers)
@@ -56,8 +57,8 @@ def render_stubs(answers: Answers, project_root: Path) -> None:
 
     if answers.docker == "docker":
         _write(
-            project_root / "Dockerfile",
-            _render_template(env, "docker/Dockerfile.j2", context),
+            project_root / "docker" / "runtimes" / "3.13" / "Dockerfile",
+            _render_template(env, "docker/runtimes/3.13/Dockerfile.j2", context),
         )
         _write(
             project_root / "docker-compose.yml",

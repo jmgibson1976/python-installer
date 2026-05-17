@@ -52,7 +52,7 @@ class TestCreateProject:
     def test_creates_dockerfile_when_docker(self, tmp_path):
         a = _answers(target_path=str(tmp_path / "test-proj"), git=False, docker="docker")
         root = create_project(a)
-        assert (root / "Dockerfile").exists()
+        assert (root / "docker" / "runtimes" / "3.13" / "Dockerfile").exists()
 
     def test_git_init_called_when_enabled(self, tmp_path):
         a = _answers(target_path=str(tmp_path / "test-proj"), git=True)

@@ -1,0 +1,19 @@
+# docker-language-server: ignore
+FROM python:3.13-alpine
+{% if db_driver == "postgresql" %}
+RUN apk add --no-cache gcc musl-dev postgresql-dev
+{% elif db_driver in ("mysql", "mariadb") %}
+RUN apk add --no-cache gcc musl-dev pkgconf mariadb-dev
+{% elif db_driver == "mssql" %}
+RUN apk add --no-cache gcc musl-dev unixodbc-dev curl
+{% elif db_driver == "oracle" %}
+RUN apk add --no-cache gcc musl-dev libaio-dev
+{% endif %}
+WORKDIR /app
+
+COPY pyproject.toml .
+RUN pip install --no-cache-dir -e ".[dev]"
+
+COPY . .
+
+CMD ["python", "-m", "{{ pkg_name }}"]
