@@ -29,7 +29,7 @@ installer/
     answers.py             ← Answers dataclass — single source of truth for all wizard answers
   stubs/                   ← Jinja2 (.j2) templates copied into new projects
     README.md.j2           ← Always rendered; conditionally includes docker/venv setup sections
-    .gitignore.j2          ← Always rendered; excludes logs/ when logging enabled
+    .gitignore.j2          ← Rendered when git=True; excludes logs/ when logging enabled
     .env.example.j2        ← Rendered when env_parsing != "none"; documents every env var
     __init__.py.j2         ← Always rendered; path constants, START_TIME, optional logging bootstrap
     env.py.j2              ← Rendered when env_parsing=="dotenv" or logging=True; ddig-style cached env reader
@@ -42,6 +42,12 @@ installer/
       runtimes/
         3.13/
           Dockerfile.j2
+    cli/                   ← Rendered when cli_support != "none"
+      __main__.py.j2       ← Entry point; typer and argparse branches
+      docs.md.j2           ← Rendered to docs/cli.md; usage guide + howto
+      commands/
+        __init__.py.j2     ← Empty package marker
+        hello.py.j2        ← Sample command; typer and argparse branches
 
 tests/                     ← Mirrors installer/ structure; pytest only
   commands/test_new.py
@@ -182,6 +188,37 @@ Always rendered. Responsibilities in order:
 `build_dependencies(answers)` returns `(runtime_deps, dev_deps)`. Mapping dicts live at module
 level (`_DB_DRIVER_PACKAGES`, etc.). When adding new prompt choices that carry dependencies,
 add an entry to the appropriate mapping dict — do not compute deps inline in `render_toml()`.
+
+### CLI stub (`__main__.py` + `commands/`)
+Rendered when `cli_support != "none"`. Two variants share the same template files with Jinja2
+conditional blocks:
+
+**Typer variant:**
+- `src/<pkg>/__main__.py` — `app = typer.Typer(...)`, `console = Console()`,
+  `_version_callback()` (reads from `importlib.metadata`), `@app.callback()` with `--version`
+  (eager), `--verbose/-v` (sets `logging.DEBUG`), `--debug/-d` (dumps parsed args as Rich panel).
+  Commands registered as `app.command("<name>")(<fn>)` — never with decorators in command files.
+- `src/<pkg>/commands/hello.py` — demonstrates: typed `Argument`, `Option` with `min=`, boolean
+  `--upper/--no-upper` flag, `--debug` panel dump, inline validation with `typer.BadParameter`.
+
+**Argparse variant:**
+- `src/<pkg>/__main__.py` — `App` class with `run()`; `ArgumentParser` with `--debug/-d` global
+  flag; `add_subparsers()`; debug block reads `APP_DEBUG` via `get_env()` (not `os.environ`);
+  dispatches to `<name>_command(args)` functions.
+- `src/<pkg>/commands/hello.py` — `register(subparsers)` adds the subcommand definition;
+  `hello_command(args: argparse.Namespace)` executes it. This split keeps `__main__.py` thin.
+
+**Debug mode (both variants):**
+- Typer: `--debug/-d` flag on callback; commands print a Rich `Panel` of their kwargs.
+- Argparse: `--debug` global flag OR `get_env("APP_DEBUG") == "true"` → prints `vars(args)`.
+- `APP_DEBUG` is already in `.env.example` — no additional env var needed.
+
+**Generated docs:** `docs/cli.md` — usage guide, command reference, how-to for adding new
+commands, and debug mode explanation. Conditional content matches the selected variant.
+
+**Anti-patterns:**
+- ❌ Do not read `APP_DEBUG` via `os.environ.get()` in generated argparse code — use `get_env()`
+- ❌ Do not apply `@app.command()` decorators in command files — register from `__main__.py`
 
 ---
 

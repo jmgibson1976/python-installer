@@ -1,0 +1,110 @@
+"""
+hello — example command for {{ project_name }}.
+
+This file is a template demonstrating the full command pattern.
+Copy it to add new commands:
+  1. Duplicate this file as commands/<your_command>.py
+  2. Rename the function(s) and update the logic
+  3. Register in __main__.py
+"""
+from __future__ import annotations
+{% if cli_support == "typer" %}
+from typing import Annotated
+
+import typer
+from rich.console import Console
+from rich.panel import Panel
+
+console = Console()
+
+
+def hello_command(
+    # Required positional argument — the person to greet.
+    name: Annotated[str, typer.Argument(help="Name of the person to greet.")],
+    # Optional flag: how many times to repeat the greeting (must be ≥ 1).
+    count: Annotated[
+        int,
+        typer.Option("--count", "-n", help="Number of times to repeat the greeting.", min=1),
+    ] = 1,
+    # Boolean switch: convert greeting to uppercase.
+    upper: Annotated[
+        bool,
+        typer.Option("--upper/--no-upper", help="Print greeting in UPPERCASE."),
+    ] = False,
+    # Debug switch: dump all received options as a Rich panel before running.
+    debug: Annotated[
+        bool,
+        typer.Option("--debug", "-d", hidden=True, help="Dump command arguments."),
+    ] = False,
+) -> None:
+    """Greet NAME, optionally multiple times."""
+
+    # ── Debug output ──────────────────────────────────────────────────────────
+    # When --debug is passed, print all received arguments before executing.
+    if debug:
+        opts = {
+            "name":  name,
+            "count": count,
+            "upper": upper,
+        }
+        rows = "\n".join(f"[bold]{k}[/bold] = {v!r}" for k, v in opts.items())
+        console.print(Panel(rows, title="[cyan]hello — debug args[/cyan]", expand=False))
+
+    # ── Validation ────────────────────────────────────────────────────────────
+    # Typer enforces `min=1` on count, but you can add richer business rules here.
+    if not name.strip():
+        raise typer.BadParameter("name cannot be blank.", param_hint="'NAME'")
+
+    # ── Command logic ─────────────────────────────────────────────────────────
+    greeting = f"Hello, {name}!"
+    if upper:
+        greeting = greeting.upper()
+
+    for _ in range(count):
+        console.print(f"[green]{greeting}[/green]")
+{% elif cli_support == "argparse" %}
+import argparse
+
+
+def register(subparsers: argparse._SubParsersAction) -> None:  # noqa: SLF001
+    """Register the ``hello`` subcommand with *subparsers*."""
+    p = subparsers.add_parser("hello", description="Greet a person by name.")
+
+    # Required argument.
+    p.add_argument("name", help="Name of the person to greet.")
+
+    # Optional flag with a default value.
+    p.add_argument(
+        "--count", "-n",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Number of times to repeat the greeting. Must be ≥ 1. (default: %(default)s)",
+    )
+
+    # Boolean switch — store_true means passing the flag sets it to True.
+    p.add_argument(
+        "--upper",
+        action="store_true",
+        help="Print greeting in UPPERCASE.",
+    )
+
+
+def hello_command(args: argparse.Namespace) -> None:
+    """Execute the ``hello`` subcommand from parsed *args*."""
+
+    # ── Validation ────────────────────────────────────────────────────────────
+    if not args.name.strip():
+        raise SystemExit("Error: name cannot be blank.")
+
+    if args.count < 1:
+        raise SystemExit("Error: --count must be ≥ 1.")
+
+    # ── Command logic ─────────────────────────────────────────────────────────
+    greeting = f"Hello, {args.name}!"
+    if args.upper:
+        greeting = greeting.upper()
+
+    for _ in range(args.count):
+        print(greeting)
+{% endif %}

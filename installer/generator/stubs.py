@@ -51,8 +51,12 @@ def render_stubs(answers: Answers, project_root: Path) -> None:
       - <pkg_name>/config.py                  (when env_parsing != "none")
       - configs/settings.toml                 (when env_parsing != "none")
       - <pkg_name>/logging.py                 (when logging=True)
-      - docker/runtimes/3.13/Dockerfile  (when docker="docker")
-      - docker-compose.yml               (when docker="docker")
+      - docker/runtimes/3.13/Dockerfile       (when docker="docker")
+      - docker-compose.yml                    (when docker="docker")
+      - src/<pkg>/__main__.py                 (when cli_support != "none")
+      - src/<pkg>/commands/__init__.py        (when cli_support != "none")
+      - src/<pkg>/commands/hello.py           (when cli_support != "none")
+      - docs/cli.md                           (when cli_support != "none")
     """
     env = _jinja_env(_STUBS_DIR)
     context = _stub_context(answers)
@@ -98,6 +102,24 @@ def render_stubs(answers: Answers, project_root: Path) -> None:
         _write(
             project_root / "docker-compose.yml",
             _render_template(env, "docker/docker-compose.yml.j2", context),
+        )
+
+    if answers.cli_support != "none":
+        _write(
+            project_root / "src" / pkg_name / "__main__.py",
+            _render_template(env, "cli/__main__.py.j2", context),
+        )
+        _write(
+            project_root / "src" / pkg_name / "commands" / "__init__.py",
+            _render_template(env, "cli/commands/__init__.py.j2", context),
+        )
+        _write(
+            project_root / "src" / pkg_name / "commands" / "hello.py",
+            _render_template(env, "cli/commands/hello.py.j2", context),
+        )
+        _write(
+            project_root / "docs" / "cli.md",
+            _render_template(env, "cli/docs.md.j2", context),
         )
 
 

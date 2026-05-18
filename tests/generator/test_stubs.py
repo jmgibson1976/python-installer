@@ -458,3 +458,162 @@ class TestEnvStub:
         content = (tmp_path / "src" / "my_app" / "config.py").read_text()
         assert "get_env(" in content
         assert "from my_app.env import get_env" in content
+
+
+class TestCliStubs:
+    def _typer_answers(self, **kwargs) -> Answers:
+        return _answers(cli_support="typer", **kwargs)
+
+    def _argparse_answers(self, **kwargs) -> Answers:
+        return _answers(cli_support="argparse", **kwargs)
+
+    # ── File existence ────────────────────────────────────────────────────────
+
+    def test_cli_files_not_created_when_none(self, tmp_path):
+        render_stubs(_answers(cli_support="none"), tmp_path)
+        assert not (tmp_path / "src" / "my_app" / "__main__.py").exists()
+        assert not (tmp_path / "src" / "my_app" / "commands").exists()
+        assert not (tmp_path / "docs" / "cli.md").exists()
+
+    def test_cli_files_created_for_typer(self, tmp_path):
+        render_stubs(self._typer_answers(), tmp_path)
+        assert (tmp_path / "src" / "my_app" / "__main__.py").exists()
+        assert (tmp_path / "src" / "my_app" / "commands" / "__init__.py").exists()
+        assert (tmp_path / "src" / "my_app" / "commands" / "hello.py").exists()
+        assert (tmp_path / "docs" / "cli.md").exists()
+
+    def test_cli_files_created_for_argparse(self, tmp_path):
+        render_stubs(self._argparse_answers(), tmp_path)
+        assert (tmp_path / "src" / "my_app" / "__main__.py").exists()
+        assert (tmp_path / "src" / "my_app" / "commands" / "__init__.py").exists()
+        assert (tmp_path / "src" / "my_app" / "commands" / "hello.py").exists()
+        assert (tmp_path / "docs" / "cli.md").exists()
+
+    # ── Typer __main__.py content ─────────────────────────────────────────────
+
+    def test_typer_main_has_app_definition(self, tmp_path):
+        render_stubs(self._typer_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__main__.py").read_text()
+        assert "app = typer.Typer(" in content
+
+    def test_typer_main_has_version_callback(self, tmp_path):
+        render_stubs(self._typer_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__main__.py").read_text()
+        assert "_version_callback" in content
+
+    def test_typer_main_has_app_callback(self, tmp_path):
+        render_stubs(self._typer_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__main__.py").read_text()
+        assert "@app.callback()" in content
+
+    def test_typer_main_has_debug_flag(self, tmp_path):
+        render_stubs(self._typer_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__main__.py").read_text()
+        assert "--debug" in content
+
+    def test_typer_main_has_verbose_flag(self, tmp_path):
+        render_stubs(self._typer_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__main__.py").read_text()
+        assert "--verbose" in content
+
+    def test_typer_main_registers_hello_command(self, tmp_path):
+        render_stubs(self._typer_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__main__.py").read_text()
+        assert 'app.command("hello")(hello_command)' in content
+
+    def test_typer_main_has_entrypoint(self, tmp_path):
+        render_stubs(self._typer_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__main__.py").read_text()
+        assert 'if __name__ == "__main__"' in content
+        assert "app()" in content
+
+    def test_typer_main_does_not_contain_argparse(self, tmp_path):
+        render_stubs(self._typer_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__main__.py").read_text()
+        assert "class App" not in content
+        assert "argparse" not in content
+
+    # ── Argparse __main__.py content ──────────────────────────────────────────
+
+    def test_argparse_main_has_app_class(self, tmp_path):
+        render_stubs(self._argparse_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__main__.py").read_text()
+        assert "class App:" in content
+
+    def test_argparse_main_has_run_method(self, tmp_path):
+        render_stubs(self._argparse_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__main__.py").read_text()
+        assert "def run(self)" in content
+
+    def test_argparse_main_has_debug_flag(self, tmp_path):
+        render_stubs(self._argparse_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__main__.py").read_text()
+        assert "--debug" in content
+
+    def test_argparse_main_has_entrypoint(self, tmp_path):
+        render_stubs(self._argparse_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__main__.py").read_text()
+        assert 'if __name__ == "__main__"' in content
+        assert "App().run()" in content
+
+    def test_argparse_main_does_not_contain_typer(self, tmp_path):
+        render_stubs(self._argparse_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__main__.py").read_text()
+        assert "typer" not in content
+
+    # ── Typer hello.py content ────────────────────────────────────────────────
+
+    def test_typer_hello_has_command_function(self, tmp_path):
+        render_stubs(self._typer_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "commands" / "hello.py").read_text()
+        assert "def hello_command(" in content
+
+    def test_typer_hello_has_count_option(self, tmp_path):
+        render_stubs(self._typer_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "commands" / "hello.py").read_text()
+        assert "--count" in content
+
+    def test_typer_hello_has_upper_flag(self, tmp_path):
+        render_stubs(self._typer_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "commands" / "hello.py").read_text()
+        assert "--upper" in content
+
+    def test_typer_hello_has_debug_panel(self, tmp_path):
+        render_stubs(self._typer_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "commands" / "hello.py").read_text()
+        assert "Panel(" in content
+
+    # ── Argparse hello.py content ─────────────────────────────────────────────
+
+    def test_argparse_hello_has_register_function(self, tmp_path):
+        render_stubs(self._argparse_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "commands" / "hello.py").read_text()
+        assert "def register(" in content
+
+    def test_argparse_hello_has_command_function(self, tmp_path):
+        render_stubs(self._argparse_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "commands" / "hello.py").read_text()
+        assert "def hello_command(" in content
+
+    def test_argparse_hello_has_count_option(self, tmp_path):
+        render_stubs(self._argparse_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "commands" / "hello.py").read_text()
+        assert "--count" in content
+
+    def test_argparse_hello_has_upper_flag(self, tmp_path):
+        render_stubs(self._argparse_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "commands" / "hello.py").read_text()
+        assert "--upper" in content
+
+    # ── docs/cli.md content ───────────────────────────────────────────────────
+
+    def test_typer_docs_mentions_debug(self, tmp_path):
+        render_stubs(self._typer_answers(), tmp_path)
+        content = (tmp_path / "docs" / "cli.md").read_text()
+        assert "--debug" in content
+        assert "my-app" in content
+
+    def test_argparse_docs_mentions_app_debug(self, tmp_path):
+        render_stubs(self._argparse_answers(), tmp_path)
+        content = (tmp_path / "docs" / "cli.md").read_text()
+        assert "APP_DEBUG" in content
