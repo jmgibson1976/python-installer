@@ -50,5 +50,5 @@ Thumbs.db
 .pre-commit-cache/
 .secrets-baseline
 
-# Installer exclusiong
+# Installer exclusions - things that were ignored by other .gitignores but we want to include in the installer repo
 !installer/stubs/.env.example.j2
