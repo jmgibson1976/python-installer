@@ -190,3 +190,65 @@ class TestEnvExampleStub:
         content = (tmp_path / ".env.example").read_text()
         assert "FORWARD_DB_PORT" not in content
 
+
+class TestConfigStub:
+    def _dotenv_answers(self, **kwargs) -> Answers:
+        return _answers(env_parsing="dotenv", **kwargs)
+
+    def _dynaconf_answers(self, **kwargs) -> Answers:
+        return _answers(env_parsing="dynaconf", **kwargs)
+
+    def test_config_py_created_for_dotenv(self, tmp_path):
+        render_stubs(self._dotenv_answers(), tmp_path)
+        assert (tmp_path / "src" / "my_app" / "config.py").exists()
+
+    def test_config_py_created_for_dynaconf(self, tmp_path):
+        render_stubs(self._dynaconf_answers(), tmp_path)
+        assert (tmp_path / "src" / "my_app" / "config.py").exists()
+
+    def test_config_py_not_created_when_env_parsing_none(self, tmp_path):
+        render_stubs(_answers(env_parsing="none"), tmp_path)
+        assert not (tmp_path / "src" / "my_app" / "config.py").exists()
+
+    def test_settings_toml_created_for_dotenv(self, tmp_path):
+        render_stubs(self._dotenv_answers(), tmp_path)
+        assert (tmp_path / "configs" / "settings.toml").exists()
+
+    def test_settings_toml_created_for_dynaconf(self, tmp_path):
+        render_stubs(self._dynaconf_answers(), tmp_path)
+        assert (tmp_path / "configs" / "settings.toml").exists()
+
+    def test_settings_toml_not_created_when_none(self, tmp_path):
+        render_stubs(_answers(env_parsing="none"), tmp_path)
+        assert not (tmp_path / "configs" / "settings.toml").exists()
+
+    def test_dotenv_config_uses_settings_class(self, tmp_path):
+        render_stubs(self._dotenv_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "config.py").read_text()
+        assert "class Settings" in content
+        assert "dotenv_values" in content
+        assert "tomllib" in content
+
+    def test_dynaconf_config_uses_lazy_settings(self, tmp_path):
+        render_stubs(self._dynaconf_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "config.py").read_text()
+        assert "LazySettings" in content
+        assert "merge_enabled=True" in content
+        assert "load_dotenv=True" in content
+
+    def test_config_contains_pkg_name_root_var(self, tmp_path):
+        render_stubs(self._dotenv_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "config.py").read_text()
+        assert "MY_APP_ROOT_DIR" in content
+
+    def test_settings_toml_contains_project_name(self, tmp_path):
+        render_stubs(self._dotenv_answers(), tmp_path)
+        content = (tmp_path / "configs" / "settings.toml").read_text()
+        assert 'name = "my-app"' in content
+
+    def test_settings_toml_has_app_section(self, tmp_path):
+        render_stubs(self._dotenv_answers(), tmp_path)
+        content = (tmp_path / "configs" / "settings.toml").read_text()
+        assert "[app]" in content
+        assert "debug = false" in content
+

@@ -44,6 +44,16 @@ class TestCreateProject:
         root = create_project(a)
         assert (root / ".env.example").exists()
 
+    def test_creates_configs_dir_when_env_parsing_set(self, tmp_path):
+        a = _answers(target_path=str(tmp_path / "test-proj"), git=False, env_parsing="dotenv")
+        root = create_project(a)
+        assert (root / "configs").is_dir()
+
+    def test_no_configs_dir_when_env_parsing_none(self, tmp_path):
+        a = _answers(target_path=str(tmp_path / "test-proj"), git=False, env_parsing="none")
+        root = create_project(a)
+        assert not (root / "configs").exists()
+
     def test_no_env_files_when_none(self, tmp_path):
         a = _answers(target_path=str(tmp_path / "test-proj"), git=False, env_parsing="none")
         root = create_project(a)

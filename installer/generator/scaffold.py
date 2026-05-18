@@ -31,10 +31,10 @@ def create_project(answers: Answers) -> Path:
     # ── pyproject.toml ────────────────────────────────────────────────────────
     _write(project_root / "pyproject.toml", render_toml(answers))
 
-    # ── .env.example (if env parsing enabled) ────────────────────────────────
+    # ── .env + configs/ (if env parsing enabled) ─────────────────────────────
     if answers.env_parsing != "none":
-        _write(project_root / ".env.example", "# Add environment variables here\n")
         _write(project_root / ".env", "# Local overrides — do not commit\n")
+        (project_root / "configs").mkdir(exist_ok=True)
 
     # ── Stubs (README, .gitignore, Dockerfile, etc.) ─────────────────────────
     render_stubs(answers, project_root)

@@ -46,7 +46,9 @@ def render_stubs(answers: Answers, project_root: Path) -> None:
       - .gitignore
 
     Conditionally rendered:
-      - .env.example                     (when env_parsing != "none")
+      - .env.example                          (when env_parsing != "none")
+      - <pkg_name>/config.py                  (when env_parsing != "none")
+      - configs/settings.toml                 (when env_parsing != "none")
       - docker/runtimes/3.13/Dockerfile  (when docker="docker")
       - docker-compose.yml               (when docker="docker")
     """
@@ -57,7 +59,16 @@ def render_stubs(answers: Answers, project_root: Path) -> None:
     _write(project_root / ".gitignore", (_STUBS_DIR / ".gitignore").read_text())
 
     if answers.env_parsing != "none":
+        pkg_name = answers.project_name.replace("-", "_")
         _write(project_root / ".env.example", _render_template(env, ".env.example.j2", context))
+        _write(
+            project_root / "src" / pkg_name / "config.py",
+            _render_template(env, "config.py.j2", context),
+        )
+        _write(
+            project_root / "configs" / "settings.toml",
+            _render_template(env, "configs/settings.toml.j2", context),
+        )
 
     if answers.docker == "docker":
         _write(
