@@ -173,6 +173,12 @@ def run_prompts(
         value = _ask(prompt, skip_name=skip_name, answers=answers)
         if value is None:
             continue  # skipped (name already provided)
+
+        # mock (unittest.mock) is part of unittest — auto-add it when not already selected
+        if prompt.key == "testing_frameworks" and isinstance(value, list):
+            if "mock" in value and "unittest" not in value:
+                value = ["unittest"] + value
+
         setattr(answers, prompt.key, value)
         _persist(answers, temp_path)
 

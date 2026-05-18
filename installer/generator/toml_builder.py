@@ -28,7 +28,7 @@ _TESTING_PACKAGES: dict[str, list[str]] = {
     "robotframework": ["robotframework"],
     "selenium": ["selenium"],
     "playwright": ["playwright"],
-    "mock": [],             # stdlib
+    "mock": [],             # stdlib (unittest.mock)
     "testcontainers": ["testcontainers"],
 }
 
@@ -43,6 +43,36 @@ _CLI_PACKAGES: dict[str, list[str]] = {
     "typer": ["typer"],
     "argparse": [],         # stdlib
 }
+
+# ── Stdlib display names (for TOML comments) ──────────────────────────────────
+# Maps internal key → human-readable stdlib module name shown in comments.
+
+_RUNTIME_STDLIB: dict[str, str] = {
+    "sqlite": "sqlite3",
+    "argparse": "argparse",
+}
+
+_DEV_STDLIB: dict[str, str] = {
+    "unittest": "unittest",
+    "mock": "unittest.mock",
+}
+
+
+def build_stdlib_notes(answers: Answers) -> tuple[list[str], list[str]]:
+    """Return ``(runtime_stdlib, dev_stdlib)`` display names for stdlib choices."""
+    runtime: list[str] = []
+    dev: list[str] = []
+
+    if answers.db_driver in _RUNTIME_STDLIB:
+        runtime.append(_RUNTIME_STDLIB[answers.db_driver])
+    if answers.cli_support in _RUNTIME_STDLIB:
+        runtime.append(_RUNTIME_STDLIB[answers.cli_support])
+
+    for fw in answers.testing_frameworks:
+        if fw in _DEV_STDLIB:
+            dev.append(_DEV_STDLIB[fw])
+
+    return runtime, dev
 
 
 def build_dependencies(answers: Answers) -> tuple[list[str], list[str]]:
@@ -78,12 +108,22 @@ def build_dependencies(answers: Answers) -> tuple[list[str], list[str]]:
 def render_toml(answers: Answers) -> str:
     """Render a ``pyproject.toml`` string from the collected answers."""
     runtime_deps, dev_deps = build_dependencies(answers)
+    runtime_stdlib, dev_stdlib = build_stdlib_notes(answers)
 
     dep_lines = "\n".join(f'    "{dep}",' for dep in runtime_deps)
     dev_dep_lines = "\n".join(f'    "{dep}",' for dep in dev_deps)
 
     runtime_block = f"[\n{dep_lines}\n]" if dep_lines else "[]"
     dev_block = f"[\n{dev_dep_lines}\n]" if dev_dep_lines else "[]"
+
+    runtime_stdlib_comment = (
+        f"# stdlib (no install needed): {', '.join(runtime_stdlib)}\n"
+        if runtime_stdlib else ""
+    )
+    dev_stdlib_comment = (
+        f"# stdlib (no install needed): {', '.join(dev_stdlib)}\n"
+        if dev_stdlib else ""
+    )
 
     pkg_name = answers.project_name.replace("-", "_")
 
@@ -98,10 +138,10 @@ version = "{answers.version}"
 description = ""
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = {runtime_block}
+{runtime_stdlib_comment}dependencies = {runtime_block}
 
 [project.optional-dependencies]
-dev = {dev_block}
+{dev_stdlib_comment}dev = {dev_block}
 
 [tool.setuptools]
 package-dir = {{"" = "src"}}
