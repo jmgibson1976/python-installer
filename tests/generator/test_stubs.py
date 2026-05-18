@@ -661,3 +661,161 @@ class TestCliStubs:
         render_stubs(self._argparse_answers(), tmp_path)
         content = (tmp_path / "docs" / "cli.md").read_text()
         assert "APP_DEBUG" in content
+
+
+class TestReadmeTechStack:
+    def test_tech_stack_section_present(self, tmp_path):
+        render_stubs(_answers(), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "## Tech Stack" in content
+
+    def test_sqlite_shown_as_stdlib(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "sqlite3" in content
+        assert "stdlib" in content
+
+    def test_postgresql_shown_as_installable(self, tmp_path):
+        render_stubs(_answers(db_driver="postgresql"), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "psycopg2" in content
+        assert "installable" in content
+
+    def test_argparse_shown_as_stdlib(self, tmp_path):
+        render_stubs(_answers(cli_support="argparse"), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "argparse" in content
+        assert "stdlib" in content
+
+    def test_typer_shown_as_installable(self, tmp_path):
+        render_stubs(_answers(cli_support="typer"), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "typer" in content
+        assert "installable" in content
+
+    def test_unittest_shown_as_stdlib(self, tmp_path):
+        render_stubs(_answers(testing_frameworks=["unittest"]), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "unittest" in content
+        assert "stdlib" in content
+
+    def test_mock_shown_as_stdlib(self, tmp_path):
+        render_stubs(_answers(testing_frameworks=["mock"]), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "unittest.mock" in content
+        assert "stdlib" in content
+
+    def test_no_db_shows_none(self, tmp_path):
+        render_stubs(_answers(db_driver="none"), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "Database driver" in content
+
+
+class TestTestStubs:
+    def test_tests_init_created_when_pytest_selected(self, tmp_path):
+        render_stubs(_answers(testing_frameworks=["pytest"]), tmp_path)
+        assert (tmp_path / "tests" / "__init__.py").exists()
+
+    def test_tests_init_created_when_unittest_selected(self, tmp_path):
+        render_stubs(_answers(testing_frameworks=["unittest"]), tmp_path)
+        assert (tmp_path / "tests" / "__init__.py").exists()
+
+    def test_tests_init_not_created_when_no_frameworks(self, tmp_path):
+        render_stubs(_answers(testing_frameworks=[]), tmp_path)
+        assert not (tmp_path / "tests" / "__init__.py").exists()
+
+    def test_pytest_sample_created_when_pytest_selected(self, tmp_path):
+        render_stubs(_answers(testing_frameworks=["pytest"]), tmp_path)
+        assert (tmp_path / "tests" / "test_sample.py").exists()
+
+    def test_pytest_sample_not_created_when_no_pytest(self, tmp_path):
+        render_stubs(_answers(testing_frameworks=["unittest"]), tmp_path)
+        assert not (tmp_path / "tests" / "test_sample.py").exists()
+
+    def test_pytest_sample_contains_def_test(self, tmp_path):
+        render_stubs(_answers(testing_frameworks=["pytest"]), tmp_path)
+        content = (tmp_path / "tests" / "test_sample.py").read_text()
+        assert "def test_" in content
+
+    def test_unittest_sample_created_when_unittest_selected(self, tmp_path):
+        render_stubs(_answers(testing_frameworks=["unittest"]), tmp_path)
+        assert (tmp_path / "tests" / "test_sample_unittest.py").exists()
+
+    def test_unittest_sample_not_created_when_no_unittest(self, tmp_path):
+        render_stubs(_answers(testing_frameworks=["pytest"]), tmp_path)
+        assert not (tmp_path / "tests" / "test_sample_unittest.py").exists()
+
+    def test_unittest_sample_contains_testcase(self, tmp_path):
+        render_stubs(_answers(testing_frameworks=["unittest"]), tmp_path)
+        content = (tmp_path / "tests" / "test_sample_unittest.py").read_text()
+        assert "unittest.TestCase" in content
+
+    def test_mock_import_present_when_mock_selected(self, tmp_path):
+        render_stubs(_answers(testing_frameworks=["unittest", "mock"]), tmp_path)
+        content = (tmp_path / "tests" / "test_sample_unittest.py").read_text()
+        assert "from unittest.mock import" in content
+
+    def test_mock_import_absent_when_mock_not_selected(self, tmp_path):
+        render_stubs(_answers(testing_frameworks=["unittest"]), tmp_path)
+        content = (tmp_path / "tests" / "test_sample_unittest.py").read_text()
+        assert "from unittest.mock import" not in content
+
+    def test_both_files_created_when_both_frameworks(self, tmp_path):
+        render_stubs(_answers(testing_frameworks=["pytest", "unittest"]), tmp_path)
+        assert (tmp_path / "tests" / "test_sample.py").exists()
+        assert (tmp_path / "tests" / "test_sample_unittest.py").exists()
+
+
+class TestDatabaseStub:
+    def test_database_py_created_when_driver_selected(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        assert (tmp_path / "src" / "my_app" / "database.py").exists()
+
+    def test_database_py_not_created_when_no_driver(self, tmp_path):
+        render_stubs(_answers(db_driver="none"), tmp_path)
+        assert not (tmp_path / "src" / "my_app" / "database.py").exists()
+
+    def test_sqlalchemy_orm_when_abstraction_selected(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite", db_abstraction="sqlalchemy"), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "database.py").read_text()
+        assert "DeclarativeBase" in content
+        assert "create_engine" in content
+        assert "get_session" in content
+
+    def test_raw_sqlite3_when_no_abstraction(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite", db_abstraction="none"), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "database.py").read_text()
+        assert "sqlite3" in content
+        assert "get_connection" in content
+        # No ORM imports
+        assert "DeclarativeBase" not in content
+
+    def test_raw_mysql_when_mysql_driver_no_abstraction(self, tmp_path):
+        render_stubs(_answers(db_driver="mysql", db_abstraction="none"), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "database.py").read_text()
+        assert "pymysql" in content
+        assert "get_connection" in content
+
+    def test_raw_postgresql_when_pg_driver_no_abstraction(self, tmp_path):
+        render_stubs(_answers(db_driver="postgresql", db_abstraction="none"), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "database.py").read_text()
+        assert "psycopg2" in content
+        assert "get_connection" in content
+
+    def test_sqlalchemy_sqlite_orm_crud_functions_present(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite", db_abstraction="sqlalchemy"), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "database.py").read_text()
+        for fn in ("create_user", "get_user", "list_users", "update_user", "delete_user"):
+            assert fn in content
+
+    def test_raw_sqlite_crud_functions_present(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite", db_abstraction="none"), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "database.py").read_text()
+        for fn in ("create_user", "get_user", "list_users", "update_user", "delete_user"):
+            assert fn in content
+
+    def test_database_py_created_for_postgresql_with_abstraction(self, tmp_path):
+        render_stubs(_answers(db_driver="postgresql", db_abstraction="sqlalchemy"), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "database.py").read_text()
+        assert "psycopg2" in content
+        assert "create_engine" in content

@@ -112,6 +112,77 @@ Rich markup uses `[colour]text[/colour]` tags.  See the
 [Rich documentation](https://rich.readthedocs.io/en/stable/markup.html) for the
 full list of styles.
 {% endif %}
+## Tech Stack
+
+| Component | Selection | Type |
+|-----------|-----------|------|
+{% if db_driver == "none" -%}
+| Database driver | None | — |
+{% elif db_driver == "sqlite" -%}
+| Database driver | sqlite3 | stdlib |
+{% elif db_driver == "mysql" -%}
+| Database driver | pymysql (MySQL) | installable |
+{% elif db_driver == "mariadb" -%}
+| Database driver | pymysql (MariaDB) | installable |
+{% elif db_driver == "postgresql" -%}
+| Database driver | psycopg2-binary (PostgreSQL) | installable |
+{% elif db_driver == "mssql" -%}
+| Database driver | pyodbc (MSSQL) | installable |
+{% elif db_driver == "oracle" -%}
+| Database driver | python-oracledb (Oracle) | installable |
+{% elif db_driver == "nosql" -%}
+| Database driver | pymongo (MongoDB) | installable |
+{% endif -%}
+{% if db_abstraction == "none" -%}
+| Database abstraction | None (raw driver) | — |
+{% elif db_abstraction == "sqlalchemy" -%}
+| Database abstraction | SQLAlchemy (ORM) | installable |
+{% elif db_abstraction == "databases" -%}
+| Database abstraction | databases (async) | installable |
+{% endif -%}
+{% if "pytest" in testing_frameworks -%}
+| Testing | pytest | installable |
+{% endif -%}
+{% if "unittest" in testing_frameworks -%}
+| Testing | unittest | stdlib |
+{% endif -%}
+{% if "mock" in testing_frameworks -%}
+| Testing | unittest.mock | stdlib |
+{% endif -%}
+{% if "hypothesis" in testing_frameworks -%}
+| Testing | hypothesis | installable |
+{% endif -%}
+{% if "robotframework" in testing_frameworks -%}
+| Testing | Robot Framework | installable |
+{% endif -%}
+{% if "selenium" in testing_frameworks -%}
+| Testing | selenium | installable |
+{% endif -%}
+{% if "playwright" in testing_frameworks -%}
+| Testing | playwright | installable |
+{% endif -%}
+{% if "testcontainers" in testing_frameworks -%}
+| Testing | testcontainers | installable |
+{% endif -%}
+{% if logging_enabled -%}
+| Logging | logging + rich | stdlib + installable |
+{% endif -%}
+{% if env_parsing == "dotenv" -%}
+| Environment | python-dotenv | installable |
+{% elif env_parsing == "dynaconf" -%}
+| Environment | dynaconf | installable |
+{% elif env_parsing == "none" -%}
+| Environment | None | — |
+{% endif -%}
+{% if cli_support == "typer" -%}
+| CLI | typer | installable |
+{% elif cli_support == "argparse" -%}
+| CLI | argparse | stdlib |
+{% elif cli_support == "none" -%}
+| CLI | None | — |
+{% endif %}
+> **stdlib** entries require no installation — they ship with Python 3.13+.
+
 {% if env_parsing != "none" %}
 
 ## Environment variables

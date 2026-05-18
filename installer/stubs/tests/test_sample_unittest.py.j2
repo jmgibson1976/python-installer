@@ -1,0 +1,91 @@
+"""
+test_sample_unittest — unittest.TestCase starter tests for {{ project_name }}.
+
+This file demonstrates the unittest testing pattern.  unittest.TestCase
+tests are fully compatible with the pytest runner — run with either:
+
+    python -m pytest
+    python -m unittest discover
+"""
+from __future__ import annotations
+
+import unittest
+{% if use_mock %}
+from unittest.mock import MagicMock, patch
+{% endif %}
+
+
+# ---------------------------------------------------------------------------
+# Example: simple units under test (inline for demo purposes).
+# Replace these with imports from your actual source modules.
+# ---------------------------------------------------------------------------
+
+def add(a: int, b: int) -> int:
+    return a + b
+
+
+def greet(name: str) -> str:
+    if not name.strip():
+        raise ValueError("name cannot be blank")
+    return f"Hello, {name}!"
+{% if use_mock %}
+
+def fetch_user(user_id: int) -> dict:
+    """Placeholder that would normally call a database or external service."""
+    raise NotImplementedError
+{% endif %}
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+class TestAdd(unittest.TestCase):
+    def test_positive_numbers(self) -> None:
+        self.assertEqual(add(2, 3), 5)
+
+    def test_negative_numbers(self) -> None:
+        self.assertEqual(add(-1, -2), -3)
+
+    def test_zero_identity(self) -> None:
+        self.assertEqual(add(0, 42), 42)
+
+
+class TestGreet(unittest.TestCase):
+    def test_returns_greeting(self) -> None:
+        self.assertEqual(greet("World"), "Hello, World!")
+
+    def test_raises_on_blank_name(self) -> None:
+        with self.assertRaises(ValueError):
+            greet("   ")
+{% if use_mock %}
+
+
+class TestFetchUser(unittest.TestCase):
+    """Demonstrates unittest.mock — replace fetch_user with your real function."""
+
+    def setUp(self) -> None:
+        # MagicMock can stand in for any object (DB session, HTTP client, etc.)
+        self.mock_db = MagicMock()
+
+    @patch(f"tests.test_sample_unittest.fetch_user")
+    def test_fetch_user_is_called_with_id(self, mock_fetch: MagicMock) -> None:
+        mock_fetch.return_value = {"id": 1, "name": "Alice"}
+
+        result = fetch_user(1)
+
+        mock_fetch.assert_called_once_with(1)
+        self.assertEqual(result["name"], "Alice")
+
+    def test_mock_db_returns_configured_value(self) -> None:
+        self.mock_db.get_user.return_value = {"id": 2, "name": "Bob"}
+
+        result = self.mock_db.get_user(2)
+
+        self.mock_db.get_user.assert_called_once_with(2)
+        self.assertEqual(result["name"], "Bob")
+{% endif %}
+
+
+if __name__ == "__main__":
+    unittest.main()

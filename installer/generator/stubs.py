@@ -33,6 +33,7 @@ def _stub_context(answers: Answers) -> dict:
         "env_parsing": answers.env_parsing,
         "cli_support": answers.cli_support,
         "docker": answers.docker,
+        "use_mock": "mock" in answers.testing_frameworks,
     }
 
 
@@ -57,6 +58,10 @@ def render_stubs(answers: Answers, project_root: Path) -> None:
       - src/<pkg>/commands/__init__.py        (when cli_support != "none")
       - src/<pkg>/commands/hello.py           (when cli_support != "none")
       - docs/cli.md                           (when cli_support != "none")
+      - tests/__init__.py                     (when testing_frameworks non-empty)
+      - tests/test_sample.py                  (when "pytest" in testing_frameworks)
+      - tests/test_sample_unittest.py         (when "unittest" in testing_frameworks)
+      - src/<pkg>/database.py                 (when db_driver != "none")
     """
     env = _jinja_env(_STUBS_DIR)
     context = _stub_context(answers)
@@ -120,6 +125,25 @@ def render_stubs(answers: Answers, project_root: Path) -> None:
         _write(
             project_root / "docs" / "cli.md",
             _render_template(env, "cli/docs.md.j2", context),
+        )
+
+    if answers.testing_frameworks:
+        _write(project_root / "tests" / "__init__.py", "")
+        if "pytest" in answers.testing_frameworks:
+            _write(
+                project_root / "tests" / "test_sample.py",
+                _render_template(env, "tests/test_sample.py.j2", context),
+            )
+        if "unittest" in answers.testing_frameworks:
+            _write(
+                project_root / "tests" / "test_sample_unittest.py",
+                _render_template(env, "tests/test_sample_unittest.py.j2", context),
+            )
+
+    if answers.db_driver != "none":
+        _write(
+            project_root / "src" / pkg_name / "database.py",
+            _render_template(env, "database.py.j2", context),
         )
 
 
