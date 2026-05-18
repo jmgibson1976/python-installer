@@ -27,13 +27,16 @@ installer/
     stubs.py               ← Renders Jinja2 stub templates conditionally based on Answers
   models/
     answers.py             ← Answers dataclass — single source of truth for all wizard answers
-  stubs/                   ← Jinja2 (.j2) templates and static files copied into new projects
-    README.md.j2
-    .gitignore
-    .env.example.j2
-    config.py.j2
+  stubs/                   ← Jinja2 (.j2) templates copied into new projects
+    README.md.j2           ← Always rendered; conditionally includes docker/venv setup sections
+    .gitignore.j2          ← Always rendered; excludes logs/ when logging enabled
+    .env.example.j2        ← Rendered when env_parsing != "none"; documents every env var
+    __init__.py.j2         ← Always rendered; path constants, START_TIME, optional logging bootstrap
+    env.py.j2              ← Rendered when env_parsing=="dotenv" or logging=True; ddig-style cached env reader
+    config.py.j2           ← Rendered when env_parsing != "none"; Settings/LazySettings wrapper
+    logging.py.j2          ← Rendered when logging=True; configurable file+console logger
     configs/
-      settings.toml.j2
+      settings.toml.j2     ← Rendered when env_parsing != "none"; dynaconf TOML with @format env refs
     docker/
       docker-compose.yml.j2
       runtimes/
@@ -139,6 +142,42 @@ When `env_parsing != "none"`, `render_stubs()` generates:
 - Every configurable value referenced in any stub (docker-compose, config.py, settings.toml)
   **must** have a corresponding entry in `.env.example.j2`.
 
+### env.py stub
+`env.py.j2` is rendered when `env_parsing == "dotenv"` **or** `logging == True` (the
+`needs_env_module` flag in `stubs.py`). It provides a single cached `.env` reader:
+- `get_env(key, default=None)` — reads from a `dotenv_values()` cache; never from `os.environ`
+- `reload_env()` — clears the cache so the next call re-reads `.env` from disk
+
+All other stubs (`config.py`, `logging.py`) must import `get_env` from `<pkg>.env` rather than
+calling `dotenv_values()` or `os.environ.get()` directly.
+
+### Logging stub (`logging.py`)
+Rendered when `logging == True`. Key design:
+- `init()` — called once in `__init__.py`; sets up rotating file handler under `logs/` and
+  optionally a Rich console handler (`LOG_CONSOLE=true` in `.env`)
+- `get_logger(name)` — returns a named child logger; callers never call `logging.getLogger()`
+  directly
+- All settings (`LOG_LEVEL`, `LOG_RETENTION_DAYS`, `LOG_CONSOLE`) read via `get_env()`, never
+  `os.environ`
+- Log files are named `<name>-YYYY-MM-DD.log`; old files beyond `LOG_RETENTION_DAYS` are pruned
+  on `init()`
+- `logs/` directory is created at `ROOT_DIR / "logs"` (exported to `os.environ` in `__init__.py`)
+- `logs/` must be added to `.gitignore.j2` when logging is enabled
+
+### `__init__.py` stub
+Always rendered. Responsibilities in order:
+1. **`__version__`** — read from installed package metadata via `importlib.metadata.version()`;
+   falls back to `"0.0.0"` if not yet installed. **Never hardcode the version string here.**
+   `pyproject.toml` is the single source of truth.
+2. **Path constants** — `ROOT_DIR`, `SRC_DIR`, and (when logging) `LOGS_DIR`, all derived from
+   `Path(__file__)`. Published to `os.environ` so sub-modules can find the project root without
+   re-deriving it from `__file__`.
+3. **`START_TIME`** — `datetime.now().isoformat()` written to `os.environ["<PKG>_START"]`.
+4. **Logging bootstrap** (when `logging == True`) — imports and calls `_init_logging()` so
+   logging is ready before any application code runs.
+5. **Settings re-export** (when `env_parsing != "none"`) — `from <pkg>.config import settings`
+   so callers can do `from <pkg> import settings`.
+
 ### Dependency mapping (toml_builder)
 `build_dependencies(answers)` returns `(runtime_deps, dev_deps)`. Mapping dicts live at module
 level (`_DB_DRIVER_PACKAGES`, etc.). When adding new prompt choices that carry dependencies,
@@ -184,7 +223,7 @@ add an entry to the appropriate mapping dict — do not compute deps inline in `
 ## Testing Rules
 
 - Tests live in `tests/` mirroring the `installer/` package structure
-- Use `pytest`; run with `python3 -m pytest`
+- Use `pytest`; run with `.venv/bin/python -m pytest`
 - Mock `questionary` calls — never trigger real interactive prompts in tests
 - Mock `_ask` at `installer.prompts.runner._ask` when testing `run_prompts()`
 - Use `tmp_path` fixture for all filesystem operations in tests
