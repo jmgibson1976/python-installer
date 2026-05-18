@@ -49,3 +49,6 @@ Thumbs.db
 .pre-commit-hooks.yaml
 .pre-commit-cache/
 .secrets-baseline
+
+# Installer exclusiong
+!installer/stubs/.env.example.j2
