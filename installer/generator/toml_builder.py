@@ -104,8 +104,10 @@ dependencies = {runtime_block}
 dev = {dev_block}
 
 [tool.setuptools]
-packages = ["{pkg_name}"]
-include-package-data = false
+package-dir = {{"" = "src"}}
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [project.scripts]
 {pkg_name} = "{pkg_name}.__main__:main"
