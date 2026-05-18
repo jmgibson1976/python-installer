@@ -33,9 +33,10 @@ from typing import Any
 
 from dotenv import dotenv_values
 
+from {{ pkg_name }}.env import get_env
+
 _DEFAULT_ROOT = Path(__file__).resolve().parent.parent.parent
-_bootstrap = dotenv_values(_DEFAULT_ROOT / ".env")
-_ROOT = Path(_bootstrap.get("{{ pkg_name | upper }}_ROOT_DIR") or _DEFAULT_ROOT)
+_ROOT = Path(get_env("{{ pkg_name | upper }}_ROOT_DIR") or _DEFAULT_ROOT)
 
 
 class Settings:

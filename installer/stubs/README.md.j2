@@ -61,3 +61,73 @@ python -m pytest
 ```
 {% endif %}
 {% endif %}
+{% if logging_enabled %}
+
+## Logging
+
+Logging is initialised automatically when the package is imported.  Log files
+are written to `logs/` at the project root.
+
+### Basic usage
+
+```python
+from {{ pkg_name }}.logging import get_logger
+
+logger = get_logger(__name__)
+logger.info("Application started")
+logger.debug("Value: %s", some_value)
+logger.warning("Something looks off")
+logger.error("An error occurred", exc_info=True)
+```
+
+### Configuration
+
+Set these keys in your `.env` file:
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `LOG_LEVEL` | `INFO` | Minimum level to record (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+| `LOG_RETENTION_DAYS` | `30` | Log files older than this many days are deleted on startup |
+| `LOG_CONSOLE` | `true` | Set to `false` to suppress terminal output |
+
+Log files are named `MMDDYYYY.log` and rotated daily by filename.
+
+### Rich terminal output
+
+When `LOG_CONSOLE=true`, output is formatted with [Rich](https://rich.readthedocs.io)
+(coloured levels, pretty tracebacks, timestamps).
+
+For output that is *not* part of the logging system (progress bars, tables,
+user-facing messages), use `rich.console.Console` directly:
+
+```python
+from rich.console import Console
+
+console = Console()
+console.print("[green]✓[/green] Done")
+console.print("[bold red]Error:[/bold red] something went wrong")
+```
+
+Rich markup uses `[colour]text[/colour]` tags.  See the
+[Rich documentation](https://rich.readthedocs.io/en/stable/markup.html) for the
+full list of styles.
+{% endif %}
+{% if env_parsing != "none" %}
+
+## Environment variables
+
+Copy `.env.example` to `.env` and fill in any values marked as required:
+
+```bash
+cp .env.example .env
+```
+
+All `.env` reads in this project go through `{{ pkg_name }}.env.get_env()`,
+which caches the parsed file so the disk is only read once per process.  To
+force a re-read (e.g. in tests that write to `.env`):
+
+```python
+from {{ pkg_name }}.env import reload_env
+reload_env()
+```
+{% endif %}

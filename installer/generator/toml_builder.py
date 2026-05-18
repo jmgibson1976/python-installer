@@ -60,6 +60,9 @@ def build_dependencies(answers: Answers) -> tuple[list[str], list[str]]:
     runtime.extend(_ENV_PACKAGES.get(answers.env_parsing, []))
     runtime.extend(_CLI_PACKAGES.get(answers.cli_support, []))
 
+    if answers.logging:
+        runtime.extend(["rich", "python-dotenv"])
+
     for fw in answers.testing_frameworks:
         dev.extend(_TESTING_PACKAGES.get(fw, []))
 

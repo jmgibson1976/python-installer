@@ -1,0 +1,144 @@
+"""
+Logging configuration for {{ project_name }}.
+
+All log-related settings are read from .env via get_env() so that shell
+environment variables cannot silently override them.
+
+Configuration (.env keys):
+    LOG_LEVEL          — root log level (default: INFO)
+    LOG_RETENTION_DAYS — days before old log files are deleted (default: 30)
+    LOG_CONSOLE        — set to "true" to enable Rich terminal output
+
+Usage:
+    # __init__.py calls init() automatically on package import.
+    # For named subsystem loggers, call get_logger() anywhere:
+
+    from {{ pkg_name }}.logging import get_logger
+
+    logger = get_logger(__name__)
+    logger.info("Something happened")
+    logger.debug("Detail: %s", value)
+
+Named loggers write to a separate file:
+    logs/<name>_MMDDYYYY.log
+
+Rich terminal output (LOG_CONSOLE=true):
+    Output is formatted with colour, tracebacks, and log-level badges.
+    Use rich.console.Console directly for non-logging terminal output:
+
+        from rich.console import Console
+        console = Console()
+        console.print("[green]✓[/green] Done")
+"""
+from __future__ import annotations
+
+import logging
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
+
+from {{ pkg_name }}.env import get_env
+
+
+# ── Resolved configuration (read once at import time) ─────────────────────────
+_LOG_LEVEL: str = get_env("LOG_LEVEL", "INFO").upper()
+_LOG_RETENTION_DAYS: int = int(get_env("LOG_RETENTION_DAYS", "30"))
+_LOG_CONSOLE: bool = get_env("LOG_CONSOLE", "false").lower() == "true"
+_LOGS_DIR: Path = Path(get_env("{{ pkg_name | upper }}_LOGS_DIR", "logs"))
+
+
+# ── Internal helpers ──────────────────────────────────────────────────────────
+
+def _cleanup(logs_dir: Path, retention_days: int) -> None:
+    """Remove ``.log`` files in *logs_dir* older than *retention_days*."""
+    if not logs_dir.exists():
+        return
+
+    cutoff = datetime.now() - timedelta(days=retention_days)
+    removed = 0
+
+    for log_file in logs_dir.glob("*.log"):
+        try:
+            if datetime.fromtimestamp(log_file.stat().st_mtime) < cutoff:
+                log_file.unlink()
+                removed += 1
+        except (OSError, ValueError) as exc:
+            logging.warning("Could not remove stale log %s: %s", log_file, exc)
+
+    if removed:
+        logging.debug("Removed %d stale log file(s).", removed)
+
+
+# ── Public API ────────────────────────────────────────────────────────────────
+
+def init(
+    name: str | None = None,
+    level: str | None = None,
+    logs_dir: Path | None = None,
+    retention_days: int | None = None,
+    console: bool | None = None,
+) -> None:
+    """
+    Configure the root logger.  Call once at application startup.
+
+    Args:
+        name:           Produce ``<name>_MMDDYYYY.log`` instead of ``MMDDYYYY.log``.
+        level:          Override ``LOG_LEVEL`` from .env (e.g. ``"DEBUG"``).
+        logs_dir:       Override the default ``logs/`` directory.
+        retention_days: Override ``LOG_RETENTION_DAYS`` from .env.
+        console:        Override ``LOG_CONSOLE`` from .env.  When ``True``,
+                        Rich formatted output is printed to the terminal.
+    """
+    logs_path = logs_dir or _LOGS_DIR
+    log_level = (level or _LOG_LEVEL).upper()
+    days = retention_days if retention_days is not None else _LOG_RETENTION_DAYS
+    show_console = console if console is not None else _LOG_CONSOLE
+
+    try:
+        logs_path.mkdir(parents=True, exist_ok=True)
+        _cleanup(logs_path, days)
+
+        numeric_level = getattr(logging, log_level, logging.INFO)
+        date_suffix = datetime.now().strftime("%m%d%Y")
+        filename = f"{name}_{date_suffix}.log" if name else f"{date_suffix}.log"
+
+        # Clear any handlers added by a previous call to avoid duplicates
+        root_logger = logging.getLogger()
+        for handler in root_logger.handlers[:]:
+            root_logger.removeHandler(handler)
+
+        handlers: list[logging.Handler] = [
+            logging.FileHandler(logs_path / filename, encoding="utf-8"),
+        ]
+
+        if show_console:
+            try:
+                from rich.logging import RichHandler
+                handlers.append(RichHandler(rich_tracebacks=True, show_path=False))
+            except ImportError:
+                # rich not installed — fall back to a plain stream handler
+                handlers.append(logging.StreamHandler(sys.stdout))
+
+        logging.basicConfig(
+            level=numeric_level,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+            handlers=handlers,
+        )
+
+    except Exception as exc:
+        print(f"Failed to initialise logging: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+
+def get_logger(name: str) -> logging.Logger:
+    """
+    Return a named logger.
+
+    init() must be called before using the returned logger to ensure
+    handlers and the log level have been configured.
+
+        logger = get_logger(__name__)
+        logger.info("Started processing")
+    """
+    return logging.getLogger(name)

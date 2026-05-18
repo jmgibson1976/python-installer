@@ -13,7 +13,7 @@ def _answers(**kwargs) -> Answers:
 
 class TestBuildDependencies:
     def test_no_selections_returns_empty_runtime(self):
-        a = _answers(db_driver="none", db_abstraction="none", env_parsing="none", cli_support="none")
+        a = _answers(db_driver="none", db_abstraction="none", env_parsing="none", cli_support="none", logging=False)
         runtime, _ = build_dependencies(a)
         assert runtime == []
 
@@ -37,6 +37,19 @@ class TestBuildDependencies:
     def test_typer_cli_support(self):
         runtime, _ = build_dependencies(_answers(cli_support="typer"))
         assert "typer" in runtime
+
+    def test_logging_adds_rich_and_dotenv(self):
+        runtime, _ = build_dependencies(_answers(logging=True, env_parsing="none"))
+        assert "rich" in runtime
+        assert "python-dotenv" in runtime
+
+    def test_logging_disabled_no_rich(self):
+        runtime, _ = build_dependencies(_answers(logging=False, env_parsing="none"))
+        assert "rich" not in runtime
+
+    def test_logging_deduplicates_dotenv_with_env_parsing(self):
+        runtime, _ = build_dependencies(_answers(logging=True, env_parsing="dotenv"))
+        assert runtime.count("python-dotenv") == 1
 
     def test_pytest_goes_to_dev(self):
         _, dev = build_dependencies(_answers(testing_frameworks=["pytest"]))
@@ -82,6 +95,7 @@ class TestRenderToml:
             db_abstraction="none",
             env_parsing="none",
             cli_support="none",
+            logging=False,
         )
         toml = render_toml(a)
         assert "dependencies = []" in toml

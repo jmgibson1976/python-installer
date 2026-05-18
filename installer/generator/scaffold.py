@@ -23,7 +23,6 @@ def create_project(answers: Answers) -> Path:
     (project_root / "tests").mkdir(exist_ok=True)
 
     # ── Source package skeleton ───────────────────────────────────────────────
-    _write(src_pkg / "__init__.py", f'"""{ answers.project_name } package."""\n')
     _write(src_pkg / "__main__.py", _main_stub(pkg_name, answers))
     _write(project_root / "tests" / "__init__.py", "")
     _write(project_root / "tests" / f"test_{pkg_name}.py", _test_stub(pkg_name))
@@ -35,6 +34,10 @@ def create_project(answers: Answers) -> Path:
     if answers.env_parsing != "none":
         _write(project_root / ".env", "# Local overrides — do not commit\n")
         (project_root / "configs").mkdir(exist_ok=True)
+
+    # ── logs/ (if logging enabled) ────────────────────────────────────────────
+    if answers.logging:
+        (project_root / "logs").mkdir(exist_ok=True)
 
     # ── Stubs (README, .gitignore, Dockerfile, etc.) ─────────────────────────
     render_stubs(answers, project_root)
@@ -52,14 +55,14 @@ def _write(path: Path, content: str) -> None:
 
 
 def _main_stub(pkg_name: str, answers: Answers) -> str:
-    lines = ['def main() -> None:']
-
     if answers.logging:
         lines = [
-            "import logging",
+            "from __future__ import annotations",
             "",
-            'logging.basicConfig(level=logging.INFO)',
-            'logger = logging.getLogger(__name__)',
+            f"from {pkg_name}.logging import get_logger",
+            "",
+            "logger = get_logger(__name__)",
+            "",
             "",
             "def main() -> None:",
             '    logger.info("Starting %s", __name__)',

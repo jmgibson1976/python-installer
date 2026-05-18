@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
@@ -44,22 +43,36 @@ def render_stubs(answers: Answers, project_root: Path) -> None:
     Always rendered:
       - README.md
       - .gitignore
+      - src/<pkg>/__init__.py
 
     Conditionally rendered:
+      - src/<pkg>/env.py                     (when env_parsing=="dotenv" or logging=True)
       - .env.example                          (when env_parsing != "none")
       - <pkg_name>/config.py                  (when env_parsing != "none")
       - configs/settings.toml                 (when env_parsing != "none")
+      - <pkg_name>/logging.py                 (when logging=True)
       - docker/runtimes/3.13/Dockerfile  (when docker="docker")
       - docker-compose.yml               (when docker="docker")
     """
     env = _jinja_env(_STUBS_DIR)
     context = _stub_context(answers)
+    pkg_name = answers.project_name.replace("-", "_")
 
     _write(project_root / "README.md", _render_template(env, "README.md.j2", context))
-    _write(project_root / ".gitignore", (_STUBS_DIR / ".gitignore").read_text())
+    _write(project_root / ".gitignore", _render_template(env, ".gitignore.j2", context))
+    _write(
+        project_root / "src" / pkg_name / "__init__.py",
+        _render_template(env, "__init__.py.j2", context),
+    )
+
+    needs_env_module = answers.logging or answers.env_parsing == "dotenv"
+    if needs_env_module:
+        _write(
+            project_root / "src" / pkg_name / "env.py",
+            _render_template(env, "env.py.j2", context),
+        )
 
     if answers.env_parsing != "none":
-        pkg_name = answers.project_name.replace("-", "_")
         _write(project_root / ".env.example", _render_template(env, ".env.example.j2", context))
         _write(
             project_root / "src" / pkg_name / "config.py",
@@ -68,6 +81,12 @@ def render_stubs(answers: Answers, project_root: Path) -> None:
         _write(
             project_root / "configs" / "settings.toml",
             _render_template(env, "configs/settings.toml.j2", context),
+        )
+
+    if answers.logging:
+        _write(
+            project_root / "src" / pkg_name / "logging.py",
+            _render_template(env, "logging.py.j2", context),
         )
 
     if answers.docker == "docker":

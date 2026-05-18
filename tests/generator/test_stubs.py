@@ -278,3 +278,179 @@ class TestConfigStub:
         content = (tmp_path / ".env.example").read_text()
         assert "MY_APP_ROOT_DIR" in content
 
+
+class TestLoggingStub:
+    def _logging_answers(self, **kwargs) -> Answers:
+        return _answers(logging=True, **kwargs)
+
+    def test_logging_config_created_when_logging_enabled(self, tmp_path):
+        render_stubs(self._logging_answers(), tmp_path)
+        assert (tmp_path / "src" / "my_app" / "logging.py").exists()
+
+    def test_logging_config_not_created_when_disabled(self, tmp_path):
+        render_stubs(_answers(logging=False), tmp_path)
+        assert not (tmp_path / "src" / "my_app" / "logging.py").exists()
+
+    def test_logging_config_has_init_function(self, tmp_path):
+        render_stubs(self._logging_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "logging.py").read_text()
+        assert "def init(" in content
+
+    def test_logging_config_has_get_logger(self, tmp_path):
+        render_stubs(self._logging_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "logging.py").read_text()
+        assert "def get_logger(" in content
+
+    def test_logging_config_has_cleanup(self, tmp_path):
+        render_stubs(self._logging_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "logging.py").read_text()
+        assert "def _cleanup(" in content
+
+    def test_logging_config_uses_get_env(self, tmp_path):
+        render_stubs(self._logging_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "logging.py").read_text()
+        assert "get_env(" in content
+        assert "dotenv_values" not in content
+
+    def test_logging_config_contains_pkg_logs_var(self, tmp_path):
+        render_stubs(self._logging_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "logging.py").read_text()
+        assert "MY_APP_LOGS_DIR" in content
+
+    def test_logging_config_supports_rich_handler(self, tmp_path):
+        render_stubs(self._logging_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "logging.py").read_text()
+        assert "RichHandler" in content
+
+    def test_logging_config_has_date_postfixed_filename(self, tmp_path):
+        render_stubs(self._logging_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "logging.py").read_text()
+        assert "strftime" in content
+        assert ".log" in content
+
+    def test_gitignore_contains_logs_dir_when_logging(self, tmp_path):
+        render_stubs(self._logging_answers(), tmp_path)
+        content = (tmp_path / ".gitignore").read_text()
+        assert "logs/" in content
+
+    def test_gitignore_no_logs_dir_when_logging_disabled(self, tmp_path):
+        render_stubs(_answers(logging=False), tmp_path)
+        content = (tmp_path / ".gitignore").read_text()
+        assert "logs/" not in content
+
+    def test_env_example_has_log_level_when_logging(self, tmp_path):
+        render_stubs(self._logging_answers(env_parsing="dotenv"), tmp_path)
+        content = (tmp_path / ".env.example").read_text()
+        assert "LOG_LEVEL" in content
+        assert "LOG_RETENTION_DAYS" in content
+        assert "LOG_CONSOLE" in content
+
+    def test_env_example_no_log_vars_when_logging_disabled(self, tmp_path):
+        render_stubs(_answers(logging=False, env_parsing="dotenv"), tmp_path)
+        content = (tmp_path / ".env.example").read_text()
+        assert "LOG_LEVEL" not in content
+
+
+class TestInitStub:
+    def test_init_py_always_created(self, tmp_path):
+        render_stubs(_answers(), tmp_path)
+        assert (tmp_path / "src" / "my_app" / "__init__.py").exists()
+
+    def test_init_py_has_version(self, tmp_path):
+        render_stubs(_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__init__.py").read_text()
+        assert '__version__' in content
+        assert "importlib.metadata" in content
+        assert "PackageNotFoundError" in content
+
+    def test_init_py_has_root_dir(self, tmp_path):
+        render_stubs(_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__init__.py").read_text()
+        assert "ROOT_DIR" in content
+
+    def test_init_py_has_logging_setup_when_enabled(self, tmp_path):
+        render_stubs(_answers(logging=True), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__init__.py").read_text()
+        assert "from my_app.logging import" in content
+        assert "_init_logging" in content
+        assert "LOGS_DIR" in content
+
+    def test_init_py_no_logging_when_disabled(self, tmp_path):
+        render_stubs(_answers(logging=False), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__init__.py").read_text()
+        assert "from my_app.logging import" not in content
+
+    def test_init_py_has_settings_import_when_env_parsing(self, tmp_path):
+        render_stubs(_answers(env_parsing="dotenv"), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__init__.py").read_text()
+        assert "from my_app.config import settings" in content
+
+    def test_init_py_no_settings_when_env_parsing_none(self, tmp_path):
+        render_stubs(_answers(env_parsing="none"), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__init__.py").read_text()
+        assert "from my_app.config import settings" not in content
+
+    def test_init_py_sets_pkg_root_env_var(self, tmp_path):
+        render_stubs(_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__init__.py").read_text()
+        assert "MY_APP_ROOT_DIR" in content
+
+    def test_init_py_sets_start_time_env_var(self, tmp_path):
+        render_stubs(_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__init__.py").read_text()
+        assert "MY_APP_START" in content
+        assert "START_TIME" in content
+
+    def test_init_py_has_section_comments(self, tmp_path):
+        render_stubs(_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__init__.py").read_text()
+        assert "Path constants" in content or "path constants" in content.lower()
+
+
+class TestEnvStub:
+    def test_env_py_created_when_logging_enabled(self, tmp_path):
+        render_stubs(_answers(logging=True, env_parsing="none"), tmp_path)
+        assert (tmp_path / "src" / "my_app" / "env.py").exists()
+
+    def test_env_py_created_when_dotenv_parsing(self, tmp_path):
+        render_stubs(_answers(logging=False, env_parsing="dotenv"), tmp_path)
+        assert (tmp_path / "src" / "my_app" / "env.py").exists()
+
+    def test_env_py_not_created_for_dynaconf_without_logging(self, tmp_path):
+        render_stubs(_answers(logging=False, env_parsing="dynaconf"), tmp_path)
+        assert not (tmp_path / "src" / "my_app" / "env.py").exists()
+
+    def test_env_py_not_created_when_neither(self, tmp_path):
+        render_stubs(_answers(logging=False, env_parsing="none"), tmp_path)
+        assert not (tmp_path / "src" / "my_app" / "env.py").exists()
+
+    def test_env_py_has_get_env_function(self, tmp_path):
+        render_stubs(_answers(logging=True), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "env.py").read_text()
+        assert "def get_env(" in content
+
+    def test_env_py_has_reload_env_function(self, tmp_path):
+        render_stubs(_answers(logging=True), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "env.py").read_text()
+        assert "def reload_env(" in content
+
+    def test_env_py_uses_cache(self, tmp_path):
+        render_stubs(_answers(logging=True), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "env.py").read_text()
+        assert "_cache" in content
+
+    def test_env_py_uses_pkg_root_env_var(self, tmp_path):
+        render_stubs(_answers(logging=True), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "env.py").read_text()
+        assert "MY_APP_ROOT_DIR" in content
+
+    def test_env_py_does_not_use_os_environ_get_for_values(self, tmp_path):
+        render_stubs(_answers(logging=True), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "env.py").read_text()
+        assert "dotenv_values" in content
+
+    def test_config_py_dotenv_uses_get_env(self, tmp_path):
+        render_stubs(_answers(env_parsing="dotenv"), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "config.py").read_text()
+        assert "get_env(" in content
+        assert "from my_app.env import get_env" in content
