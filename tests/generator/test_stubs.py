@@ -524,8 +524,9 @@ class TestCliStubs:
     def test_typer_main_has_entrypoint(self, tmp_path):
         render_stubs(self._typer_answers(), tmp_path)
         content = (tmp_path / "src" / "my_app" / "__main__.py").read_text()
+        assert "def main()" in content
         assert 'if __name__ == "__main__"' in content
-        assert "app()" in content
+        assert "main()" in content
 
     def test_typer_main_does_not_contain_argparse(self, tmp_path):
         render_stubs(self._typer_answers(), tmp_path)
@@ -553,8 +554,9 @@ class TestCliStubs:
     def test_argparse_main_has_entrypoint(self, tmp_path):
         render_stubs(self._argparse_answers(), tmp_path)
         content = (tmp_path / "src" / "my_app" / "__main__.py").read_text()
+        assert "def main()" in content
         assert 'if __name__ == "__main__"' in content
-        assert "App().run()" in content
+        assert "main()" in content
 
     def test_argparse_main_does_not_contain_typer(self, tmp_path):
         render_stubs(self._argparse_answers(), tmp_path)
@@ -583,6 +585,31 @@ class TestCliStubs:
         content = (tmp_path / "src" / "my_app" / "commands" / "hello.py").read_text()
         assert "Panel(" in content
 
+    def test_typer_hello_reads_debug_from_context(self, tmp_path):
+        render_stubs(self._typer_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "commands" / "hello.py").read_text()
+        # debug/verbose must come from ctx.obj, not a per-command --debug flag
+        assert "ctx.obj" in content
+        assert "ctx: typer.Context" in content
+
+    def test_typer_hello_has_verbose_output(self, tmp_path):
+        render_stubs(self._typer_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "commands" / "hello.py").read_text()
+        assert "verbose" in content
+
+    def test_typer_main_sets_ctx_obj(self, tmp_path):
+        render_stubs(self._typer_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__main__.py").read_text()
+        assert "ctx.ensure_object" in content
+        assert 'ctx.obj["debug"]' in content
+        assert 'ctx.obj["verbose"]' in content
+
+    def test_typer_verbose_present_regardless_of_logging(self, tmp_path):
+        render_stubs(self._typer_answers(logging=False), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__main__.py").read_text()
+        assert "--verbose" in content
+        assert 'ctx.obj["verbose"]' in content
+
     # ── Argparse hello.py content ─────────────────────────────────────────────
 
     def test_argparse_hello_has_register_function(self, tmp_path):
@@ -604,6 +631,23 @@ class TestCliStubs:
         render_stubs(self._argparse_answers(), tmp_path)
         content = (tmp_path / "src" / "my_app" / "commands" / "hello.py").read_text()
         assert "--upper" in content
+
+    def test_argparse_hello_reads_verbose_from_args(self, tmp_path):
+        render_stubs(self._argparse_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "commands" / "hello.py").read_text()
+        assert "args.verbose" in content
+
+    def test_argparse_main_implements_verbose(self, tmp_path):
+        render_stubs(self._argparse_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__main__.py").read_text()
+        assert "args.verbose" in content
+        assert "logging.getLogger" in content
+
+    def test_argparse_verbose_present_regardless_of_logging(self, tmp_path):
+        render_stubs(self._argparse_answers(logging=False), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "__main__.py").read_text()
+        assert "--verbose" in content
+        assert "args.verbose" in content
 
     # ── docs/cli.md content ───────────────────────────────────────────────────
 

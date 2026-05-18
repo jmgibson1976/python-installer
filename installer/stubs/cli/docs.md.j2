@@ -14,6 +14,12 @@ python -m {{ pkg_name }} --help
 
 ## Global options
 
+> **Important:** Global options must be placed **before** the subcommand name:
+> ```bash
+> {{ pkg_name }} --verbose hello Alice   # ✅ correct
+> {{ pkg_name }} hello Alice --verbose   # ❌ wrong — verbose is not a hello option
+> ```
+
 | Option | Short | Description |
 |--------|-------|-------------|
 | `--version` | | Print installed version and exit |
@@ -37,14 +43,14 @@ Greet a person by name.
 | `NAME` | | required | Name of the person to greet |
 | `--count` | `-n` | `1` | Number of times to repeat (must be ≥ 1) |
 | `--upper` / `--no-upper` | | off | Print greeting in UPPERCASE |
-| `--debug` | `-d` | off | Dump command arguments before executing |
 
 **Examples:**
 
 ```bash
 {{ pkg_name }} hello Alice
 {{ pkg_name }} hello Alice --count 3 --upper
-{{ pkg_name }} hello Alice --debug
+{{ pkg_name }} --verbose hello Alice
+{{ pkg_name }} --debug hello Alice --count 2
 ```
 
 ---

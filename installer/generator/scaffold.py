@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import tomllib
 from pathlib import Path
 
 from installer.generator.stubs import render_stubs
@@ -28,7 +29,14 @@ def create_project(answers: Answers) -> Path:
     _write(project_root / "tests" / f"test_{pkg_name}.py", _test_stub(pkg_name))
 
     # ── pyproject.toml ────────────────────────────────────────────────────────
-    _write(project_root / "pyproject.toml", render_toml(answers))
+    toml_content = render_toml(answers)
+    try:
+        tomllib.loads(toml_content)
+    except tomllib.TOMLDecodeError as exc:
+        raise RuntimeError(
+            f"Generated pyproject.toml is invalid TOML: {exc}\n\n{toml_content}"
+        ) from exc
+    _write(project_root / "pyproject.toml", toml_content)
 
     # ── .env + configs/ (if env parsing enabled) ─────────────────────────────
     if answers.env_parsing != "none":

@@ -19,6 +19,9 @@ console = Console()
 
 
 def hello_command(
+    # Typer passes the shared context automatically — use it to read global flags
+    # (verbose, debug) that were set in the @app.callback() in __main__.py.
+    ctx: typer.Context,
     # Required positional argument — the person to greet.
     name: Annotated[str, typer.Argument(help="Name of the person to greet.")],
     # Optional flag: how many times to repeat the greeting (must be ≥ 1).
@@ -31,16 +34,17 @@ def hello_command(
         bool,
         typer.Option("--upper/--no-upper", help="Print greeting in UPPERCASE."),
     ] = False,
-    # Debug switch: dump all received options as a Rich panel before running.
-    debug: Annotated[
-        bool,
-        typer.Option("--debug", "-d", hidden=True, help="Dump command arguments."),
-    ] = False,
 ) -> None:
     """Greet NAME, optionally multiple times."""
 
+    # ── Read global flags from context ────────────────────────────────────────
+    # These were set by _main_callback in __main__.py and are available in every
+    # command. Access pattern: ctx.obj.get("<flag>", <default>)
+    debug   = ctx.obj.get("debug",   False) if ctx.obj else False
+    verbose = ctx.obj.get("verbose", False) if ctx.obj else False
+
     # ── Debug output ──────────────────────────────────────────────────────────
-    # When --debug is passed, print all received arguments before executing.
+    # Triggered by passing --debug before the subcommand: {{ pkg_name }} --debug hello Alice
     if debug:
         opts = {
             "name":  name,
@@ -54,6 +58,11 @@ def hello_command(
     # Typer enforces `min=1` on count, but you can add richer business rules here.
     if not name.strip():
         raise typer.BadParameter("name cannot be blank.", param_hint="'NAME'")
+
+    # ── Verbose output ────────────────────────────────────────────────────────
+    # Triggered by --verbose before the subcommand: {{ pkg_name }} --verbose hello Alice
+    if verbose:
+        console.print(f"[dim]hello: greeting '{name}' × {count}[/dim]")
 
     # ── Command logic ─────────────────────────────────────────────────────────
     greeting = f"Hello, {name}!"
@@ -91,7 +100,11 @@ def register(subparsers: argparse._SubParsersAction) -> None:  # noqa: SLF001
 
 
 def hello_command(args: argparse.Namespace) -> None:
-    """Execute the ``hello`` subcommand from parsed *args*."""
+    """Execute the ``hello`` subcommand from parsed *args*.
+
+    Global flags (args.verbose, args.debug) are set by App.run() in __main__.py
+    and are available here because argparse attaches them to the same Namespace.
+    """
 
     # ── Validation ────────────────────────────────────────────────────────────
     if not args.name.strip():
@@ -99,6 +112,11 @@ def hello_command(args: argparse.Namespace) -> None:
 
     if args.count < 1:
         raise SystemExit("Error: --count must be ≥ 1.")
+
+    # ── Verbose output ────────────────────────────────────────────────────────
+    # Triggered by: {{ pkg_name }} --verbose hello Alice
+    if args.verbose:
+        print(f"[verbose] hello: greeting '{args.name}' × {args.count}")
 
     # ── Command logic ─────────────────────────────────────────────────────────
     greeting = f"Hello, {args.name}!"

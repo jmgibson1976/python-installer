@@ -47,6 +47,7 @@ def _version_callback(value: bool) -> None:
 
 @app.callback()
 def _main_callback(
+    ctx: typer.Context,
     version: Annotated[
         bool,
         typer.Option(
@@ -68,9 +69,16 @@ def _main_callback(
         ),
     ] = False,
 ) -> None:
-    # Adjust log level when --verbose is set.
+    # Store flags in the Typer context so every command can read them.
+    # Commands access these via:  debug = ctx.obj.get("debug", False)
+    ctx.ensure_object(dict)
+    ctx.obj["verbose"] = verbose
+    ctx.obj["debug"] = debug
+
     if verbose:
+        # Raise the root log level so DEBUG messages become visible everywhere.
         logging.getLogger().setLevel(logging.DEBUG)
+        console.print("[dim]Verbose mode enabled.[/dim]")
 
 
 # ── Command registration ───────────────────────────────────────────────────────
@@ -80,10 +88,16 @@ app.command("hello")(hello_command)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
-if __name__ == "__main__":
+def main() -> None:
+    """Setuptools entry point — called by the installed ``{{ pkg_name }}`` script."""
     app()
+
+
+if __name__ == "__main__":
+    main()
 {% elif cli_support == "argparse" %}
 import argparse
+import logging
 import sys
 {% if logging_enabled %}
 from {{ pkg_name }}.logging import get_logger
@@ -120,7 +134,7 @@ class App:
         parser.add_argument(
             "--verbose", "-v",
             action="store_true",
-            help="Enable verbose output.",
+            help="Enable verbose (DEBUG) log output.",
         )
 
         # ── Subcommands ───────────────────────────────────────────────────────
@@ -131,8 +145,16 @@ class App:
         # ── Parse ─────────────────────────────────────────────────────────────
         args = parser.parse_args()
 
+        # ── Verbose ───────────────────────────────────────────────────────────
+        # --verbose raises the root log level so DEBUG messages are visible.
+        # Commands receive args.verbose and can emit extra output themselves.
+        if args.verbose:
+            logging.getLogger().setLevel(logging.DEBUG)
+            print("[verbose] Debug logging enabled.", file=sys.stderr)
+
         # ── Debug output ──────────────────────────────────────────────────────
         # Debug mode is triggered by --debug flag OR APP_DEBUG=true in .env.
+        # args is passed to every command so commands can also check args.debug.
         {% if env_parsing != "none" %}
         _app_debug = get_env("APP_DEBUG", "false").lower() == "true"
         {% else %}
@@ -155,6 +177,11 @@ class App:
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
-if __name__ == "__main__":
+def main() -> None:
+    """Setuptools entry point — called by the installed ``{{ pkg_name }}`` script."""
     App().run()
+
+
+if __name__ == "__main__":
+    main()
 {% endif %}
