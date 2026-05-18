@@ -16,9 +16,13 @@ class TestRenderStubs:
         render_stubs(_answers(), tmp_path)
         assert (tmp_path / "README.md").exists()
 
-    def test_gitignore_always_created(self, tmp_path):
-        render_stubs(_answers(), tmp_path)
+    def test_gitignore_created_when_git_enabled(self, tmp_path):
+        render_stubs(_answers(git=True), tmp_path)
         assert (tmp_path / ".gitignore").exists()
+
+    def test_gitignore_not_created_when_git_disabled(self, tmp_path):
+        render_stubs(_answers(git=False), tmp_path)
+        assert not (tmp_path / ".gitignore").exists()
 
     def test_env_example_always_created(self, tmp_path):
         render_stubs(_answers(env_parsing="python-dotenv"), tmp_path)

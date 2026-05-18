@@ -42,10 +42,10 @@ def render_stubs(answers: Answers, project_root: Path) -> None:
 
     Always rendered:
       - README.md
-      - .gitignore
       - src/<pkg>/__init__.py
 
     Conditionally rendered:
+      - .gitignore                            (when git=True)
       - src/<pkg>/env.py                     (when env_parsing=="dotenv" or logging=True)
       - .env.example                          (when env_parsing != "none")
       - <pkg_name>/config.py                  (when env_parsing != "none")
@@ -59,7 +59,8 @@ def render_stubs(answers: Answers, project_root: Path) -> None:
     pkg_name = answers.project_name.replace("-", "_")
 
     _write(project_root / "README.md", _render_template(env, "README.md.j2", context))
-    _write(project_root / ".gitignore", _render_template(env, ".gitignore.j2", context))
+    if answers.git:
+        _write(project_root / ".gitignore", _render_template(env, ".gitignore.j2", context))
     _write(
         project_root / "src" / pkg_name / "__init__.py",
         _render_template(env, "__init__.py.j2", context),
