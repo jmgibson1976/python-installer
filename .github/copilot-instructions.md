@@ -30,9 +30,15 @@ installer/
   stubs/                   ← Jinja2 (.j2) templates and static files copied into new projects
     README.md.j2
     .gitignore
+    .env.example.j2
+    config.py.j2
+    configs/
+      settings.toml.j2
     docker/
-      Dockerfile.j2
       docker-compose.yml.j2
+      runtimes/
+        3.13/
+          Dockerfile.j2
 
 tests/                     ← Mirrors installer/ structure; pytest only
   commands/test_new.py
@@ -117,6 +123,21 @@ the wizard proceeds.
 `stubs.py` calls `jinja2.Environment(loader=FileSystemLoader(...), undefined=StrictUndefined)`.
 `StrictUndefined` is intentional — it causes immediate errors for missing template variables
 rather than silent empty strings. Always pass a complete context dict to `render_stubs()`.
+
+### Config stub (`config.py` + `configs/`)
+When `env_parsing != "none"`, `render_stubs()` generates:
+- `src/<pkg>/config.py` — a `Settings` class (dotenv) or `LazySettings` wrapper (dynaconf) that
+  reads `.env` and auto-discovers all `*.toml` files under `configs/`
+- `configs/settings.toml` — seeded with an `[app]` section as a working example
+- `.env.example` — documents every env var the project uses
+
+**Critical rules for config stubs:**
+- Never use `os.environ.get()` in generated code — read the root dir override from `.env` itself
+  via `dotenv_values()` (the ddig pattern), which avoids stale shell variable contamination.
+- For dynaconf templates, use `@format {env[VAR_NAME]}` syntax in TOML so values delegate to
+  the environment rather than being hardcoded.
+- Every configurable value referenced in any stub (docker-compose, config.py, settings.toml)
+  **must** have a corresponding entry in `.env.example.j2`.
 
 ### Dependency mapping (toml_builder)
 `build_dependencies(answers)` returns `(runtime_deps, dev_deps)`. Mapping dicts live at module

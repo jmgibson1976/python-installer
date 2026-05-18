@@ -4,6 +4,16 @@ A Laravel-inspired Python CLI tool that interactively scaffolds new Python proje
 wizard of prompts and get a fully structured project with `pyproject.toml`, source skeleton, tests,
 optional Docker configuration, and git initialisation — ready to code.
 
+The wizard generates a fully wired project including:
+- `pyproject.toml` with all selected dependencies
+- `src/<pkg>/` source package with `__init__.py`, `__main__.py`, and an optional `config.py`
+- `configs/settings.toml` — structured config auto-discovered at startup
+- `.env` + `.env.example` — pre-populated with every env var the project uses
+- `configs/` — drop `.toml` files here; they are merged automatically into `settings`
+- `tests/` skeleton
+- `README.md` and `.gitignore`
+- Docker: `docker-compose.yml` + `docker/runtimes/3.13/Dockerfile` (when docker selected)
+
 ---
 
 ## Requirements
@@ -102,6 +112,15 @@ installer/
   generator/         ← scaffold, toml builder, stub renderer
   models/answers.py  ← collected wizard answers
   stubs/             ← Jinja2 templates for generated projects
+    README.md.j2
+    .gitignore
+    .env.example.j2
+    config.py.j2
+    configs/
+      settings.toml.j2
+    docker/
+      docker-compose.yml.j2
+      runtimes/3.13/Dockerfile.j2
 tests/               ← pytest suite mirroring installer/
 ```
 

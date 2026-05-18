@@ -241,14 +241,40 @@ class TestConfigStub:
         content = (tmp_path / "src" / "my_app" / "config.py").read_text()
         assert "MY_APP_ROOT_DIR" in content
 
-    def test_settings_toml_contains_project_name(self, tmp_path):
+    def test_dotenv_config_does_not_use_os_environ(self, tmp_path):
         render_stubs(self._dotenv_answers(), tmp_path)
-        content = (tmp_path / "configs" / "settings.toml").read_text()
-        assert 'name = "my-app"' in content
+        content = (tmp_path / "src" / "my_app" / "config.py").read_text()
+        assert "os.environ" not in content
+        assert "dotenv_values" in content
 
-    def test_settings_toml_has_app_section(self, tmp_path):
+    def test_dynaconf_config_does_not_use_os_environ(self, tmp_path):
+        render_stubs(self._dynaconf_answers(), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "config.py").read_text()
+        assert "os.environ" not in content
+
+    def test_settings_toml_dotenv_has_hardcoded_defaults(self, tmp_path):
         render_stubs(self._dotenv_answers(), tmp_path)
         content = (tmp_path / "configs" / "settings.toml").read_text()
         assert "[app]" in content
+        assert 'name = "my-app"' in content
         assert "debug = false" in content
+
+    def test_settings_toml_dynaconf_uses_env_format(self, tmp_path):
+        render_stubs(self._dynaconf_answers(), tmp_path)
+        content = (tmp_path / "configs" / "settings.toml").read_text()
+        assert "[app]" in content
+        assert "@format {env[APP_NAME]}" in content
+        assert "@format {env[APP_DEBUG]}" in content
+
+    def test_env_example_has_app_vars(self, tmp_path):
+        render_stubs(self._dotenv_answers(), tmp_path)
+        content = (tmp_path / ".env.example").read_text()
+        assert "APP_NAME" in content
+        assert "APP_DEBUG" in content
+        assert "APP_VERSION" in content
+
+    def test_env_example_has_root_dir_comment(self, tmp_path):
+        render_stubs(self._dotenv_answers(), tmp_path)
+        content = (tmp_path / ".env.example").read_text()
+        assert "MY_APP_ROOT_DIR" in content
 

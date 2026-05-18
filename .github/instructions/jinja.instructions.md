@@ -4,6 +4,15 @@ applyTo: "installer/stubs/**/*.j2"
 
 # Jinja2 Stub Instructions (python-installer project)
 
+## Environment Variables in Stubs
+
+Every configurable value introduced in any stub template (`docker-compose.yml.j2`, `config.py.j2`, `configs/settings.toml.j2`, etc.) **must** have a corresponding entry in `.env.example.j2`. This ensures the generated project's `.env.example` documents every variable a developer needs to set.
+
+Rules:
+- If a new env var is referenced in any `.j2` template, add it to `.env.example.j2` in the appropriate section.
+- Never read configurable values from `os.environ` — use `dotenv_values()` to read from `.env` directly. `os.environ` is susceptible to stale shell variables.
+- For dynaconf templates, reference env vars using `@format {env[VAR_NAME]}` syntax so the TOML file delegates to environment rather than hardcoding values.
+
 ## Template Authoring
 
 - All stub templates live under `installer/stubs/` and use the `.j2` extension.

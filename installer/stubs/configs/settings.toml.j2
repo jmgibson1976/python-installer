@@ -2,10 +2,20 @@
 #
 # Add config sections here. Access them via:
 #   from {{ pkg_name }}.config import settings
-#   print(settings.app.name)
-#   print(settings["app"]["debug"])
+#
+# For dynaconf: reference env vars with @format {env[VAR_NAME]}
+# For flat overrides: set the value directly in .env
+{% if env_parsing == "dynaconf" %}
+[app]
+name = "@format {env[APP_NAME]}"
+version = "@format {env[APP_VERSION]}"
+debug = "@format {env[APP_DEBUG]}"
+{% else %}
+# Structured defaults — override individual keys with flat values in .env
+# e.g. APP_NAME=my-app in .env will be available as settings["APP_NAME"]
 
 [app]
 name = "{{ project_name }}"
 version = "{{ version }}"
 debug = false
+{% endif %}
