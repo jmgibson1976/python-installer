@@ -1551,3 +1551,55 @@ class TestPreCommitDocs:
         content = (tmp_path / "README.md").read_text()
         assert "mypy" in content
         assert "bandit" in content
+
+
+class TestGithooksStubs:
+    def test_githooks_created_when_git_and_tools_selected(self, tmp_path):
+        render_stubs(_answers(git=True, optional_deps=["ruff"]), tmp_path)
+        assert (tmp_path / ".githooks" / "pre-commit").exists()
+        assert (tmp_path / ".githooks" / "prepare-commit-msg").exists()
+        assert (tmp_path / ".githooks" / "post-commit").exists()
+        assert (tmp_path / ".githooks" / "pre-push").exists()
+
+    def test_githooks_not_created_when_no_tools(self, tmp_path):
+        render_stubs(_answers(git=True, optional_deps=[]), tmp_path)
+        assert not (tmp_path / ".githooks").exists()
+
+    def test_githooks_not_created_when_no_git(self, tmp_path):
+        render_stubs(_answers(git=False, optional_deps=["ruff"]), tmp_path)
+        assert not (tmp_path / ".githooks").exists()
+
+    def test_pre_commit_hook_is_executable(self, tmp_path):
+        render_stubs(_answers(git=True, optional_deps=["black"]), tmp_path)
+        hook = tmp_path / ".githooks" / "pre-commit"
+        assert hook.stat().st_mode & 0o111
+
+    def test_pass_through_hooks_are_executable(self, tmp_path):
+        render_stubs(_answers(git=True, optional_deps=["ruff"]), tmp_path)
+        for name in ("prepare-commit-msg", "post-commit", "pre-push"):
+            assert (tmp_path / ".githooks" / name).stat().st_mode & 0o111
+
+    def test_pre_commit_hook_calls_pre_commit_run(self, tmp_path):
+        render_stubs(_answers(git=True, optional_deps=["mypy"]), tmp_path)
+        content = (tmp_path / ".githooks" / "pre-commit").read_text()
+        assert "pre-commit run" in content
+        assert "hook-stage pre-commit" in content
+
+    def test_pre_commit_hook_graceful_when_not_installed(self, tmp_path):
+        render_stubs(_answers(git=True, optional_deps=["ruff"]), tmp_path)
+        content = (tmp_path / ".githooks" / "pre-commit").read_text()
+        assert "not installed" in content
+        assert "exit 0" in content
+
+    def test_pass_through_delegates_to_copilot_hook(self, tmp_path):
+        render_stubs(_answers(git=True, optional_deps=["black"]), tmp_path)
+        for name in ("prepare-commit-msg", "post-commit", "pre-push"):
+            content = (tmp_path / ".githooks" / name).read_text()
+            assert f".copilot/hooks/{name}" in content
+            assert 'exec "$HOOK"' in content
+
+    def test_pre_commit_hook_lists_selected_tools(self, tmp_path):
+        render_stubs(_answers(git=True, optional_deps=["ruff", "mypy"]), tmp_path)
+        content = (tmp_path / ".githooks" / "pre-commit").read_text()
+        assert "ruff" in content
+        assert "mypy" in content

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Delegate to global Copilot hook if present, then exit with its status.
+# Falls back silently if the hook is missing or not executable.
+HOOK="$HOME/.copilot/hooks/post-commit"
+[[ -x "$HOOK" ]] && exec "$HOOK" "$@"
+exit 0

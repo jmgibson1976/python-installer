@@ -53,7 +53,7 @@ def create_project(answers: Answers) -> Path:
 
     # ── Git init ──────────────────────────────────────────────────────────────
     if answers.git:
-        _git_init(project_root)
+        _git_init(project_root, use_local_hooks=bool(answers.optional_deps))
 
     return project_root
 
@@ -99,13 +99,19 @@ def test_{pkg_name}_placeholder() -> None:
 """
 
 
-def _git_init(project_root: Path) -> None:
+def _git_init(project_root: Path, use_local_hooks: bool = False) -> None:
     try:
         subprocess.run(
             ["git", "init", "-b", "main", str(project_root)],
             check=True,
             capture_output=True,
         )
+        if use_local_hooks:
+            subprocess.run(
+                ["git", "-C", str(project_root), "config", "core.hooksPath", ".githooks"],
+                check=True,
+                capture_output=True,
+            )
         subprocess.run(
             ["git", "-C", str(project_root), "add", "."],
             check=True,

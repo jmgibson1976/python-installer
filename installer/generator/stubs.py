@@ -77,6 +77,10 @@ def render_stubs(answers: Answers, project_root: Path) -> None:
       - scripts/seed.sh                        (when db_driver is sql)
       - .pre-commit-config.yaml              (when any optional_deps are selected)
       - docs/pre-commit.md                    (when any optional_deps are selected)
+      - .githooks/pre-commit                  (when git=True and optional_deps non-empty; executable)
+      - .githooks/prepare-commit-msg          (when git=True and optional_deps non-empty; delegates to ~/.copilot/hooks)
+      - .githooks/post-commit                 (when git=True and optional_deps non-empty; delegates to ~/.copilot/hooks)
+      - .githooks/pre-push                    (when git=True and optional_deps non-empty; delegates to ~/.copilot/hooks)
       - .github/copilot-instructions.md        (when ai_setup=True)
       - .github/instructions/python.instructions.md  (when ai_setup=True)
       - .github/instructions/test.instructions.md    (when ai_setup=True and testing_frameworks non-empty)
@@ -221,6 +225,24 @@ def render_stubs(answers: Answers, project_root: Path) -> None:
         _write(
             project_root / "docs" / "pre-commit.md",
             _render_template(env, "docs/pre-commit.md.j2", context),
+        )
+
+    if answers.git and answers.optional_deps:
+        _write_executable(
+            project_root / ".githooks" / "pre-commit",
+            _render_template(env, "githooks/pre-commit.j2", context),
+        )
+        _write_executable(
+            project_root / ".githooks" / "prepare-commit-msg",
+            _render_template(env, "githooks/prepare-commit-msg.j2", context),
+        )
+        _write_executable(
+            project_root / ".githooks" / "post-commit",
+            _render_template(env, "githooks/post-commit.j2", context),
+        )
+        _write_executable(
+            project_root / ".githooks" / "pre-push",
+            _render_template(env, "githooks/pre-push.j2", context),
         )
 
     if answers.ai_setup:

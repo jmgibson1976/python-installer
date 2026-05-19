@@ -10,10 +10,11 @@ automatically before every `git commit`. No check needs to be run manually — t
 
 ```bash
 pip install pre-commit
-pre-commit install
 ```
 
-After `pre-commit install`, every future `git commit` will trigger the configured hooks.
+That's all — git is already configured to use `.githooks/` and the `pre-commit` wrapper
+script is already in place. No `pre-commit install` needed.
+
 To run all hooks manually on the entire codebase (without committing):
 
 ```bash
@@ -25,6 +26,75 @@ To run a single hook by id:
 ```bash
 pre-commit run <hook-id> --all-files
 ```
+
+---
+
+## Git integration
+
+This project configures git to look for hooks in `.githooks/` instead of the default
+`.git/hooks/`. This allows the hook scripts to be version-controlled and shared with
+collaborators.
+
+`git config --local core.hooksPath .githooks` is set **per-project** (written to
+`.git/config`). It only affects this repository — every other repo on your machine
+continues using whatever hooks path is configured globally.
+
+### Hook execution flow
+
+Here is exactly what happens when you run `git commit`:
+
+1. **`.githooks/pre-commit` fires** — git calls this because `core.hooksPath = .githooks`.
+   It runs `pre-commit run --hook-stage pre-commit` against your staged files, executing
+   the tools selected during project setup ({{ optional_deps | join(", ") }}).
+   If any check fails the commit is blocked here and nothing further runs.
+
+2. **`.githooks/prepare-commit-msg` fires** — this script immediately `exec`s into
+   `~/.copilot/hooks/prepare-commit-msg` (if present), which generates an AI commit
+   message from the staged diff. From git's perspective it is one uninterrupted hook;
+   the Copilot logic runs as part of it.
+
+3. **Commit is written.**
+
+4. **`.githooks/post-commit` fires** — delegates to `~/.copilot/hooks/post-commit`
+   (auto-pushes the branch to remote).
+
+On `git push`:
+
+5. **`.githooks/pre-push` fires** — delegates to `~/.copilot/hooks/pre-push`
+   (auto-creates a draft GitHub PR for the branch).
+
+Git only ever calls `.githooks/<name>`. It has no knowledge of the Copilot hooks — the
+delegation scripts are the bridge. Because they use `exec "$HOOK" "$@"` the Copilot hook
+*replaces* the delegation process (same PID, same args, same exit code). Both sets of
+behaviour run, in the right order, with no duplication.
+
+### Hook scripts in `.githooks/`
+
+| Script | Purpose |
+|--------|---------|
+| `pre-commit` | Runs pre-commit framework checks on staged files |
+| `prepare-commit-msg` | Delegates to `~/.copilot/hooks/prepare-commit-msg` if present |
+| `post-commit` | Delegates to `~/.copilot/hooks/post-commit` if present |
+| `pre-push` | Delegates to `~/.copilot/hooks/pre-push` if present |
+
+The three delegation hooks silently skip if the global Copilot hooks are not installed on
+a collaborator's machine — they will never block a commit.
+
+> **Why not `.git/hooks/`?**  If your machine has `core.hooksPath` set globally
+> (e.g. to `~/.copilot/hooks/`), git ignores `.git/hooks/` entirely. A project-local
+> `core.hooksPath` takes precedence and lets both the pre-commit framework and global
+> hooks coexist cleanly.
+
+### For new contributors
+
+After cloning the repository, install pre-commit once:
+
+```bash
+pip install pre-commit
+```
+
+No `pre-commit install` is required — `.githooks/pre-commit` is already in place and git
+is already configured to use `.githooks/` via the committed `.git/config` setting.
 
 ---
 
@@ -267,7 +337,7 @@ SKIP=mypy git commit -m "feat: add feature"
 
 | Symptom | Fix |
 |---------|-----|
-| Hook not found / wrong version | `pre-commit clean && pre-commit install` |
+| Hook not found / wrong version | `pre-commit clean` then re-run `pre-commit run --all-files` |
 | Hooks run but don't fix files | Most hooks auto-fix; stage the changes (`git add .`) and commit again |
 | `mypy` reports missing stubs | `pip install types-<package>` for the affected library |
 {% if "detect-secrets" in optional_deps %}
