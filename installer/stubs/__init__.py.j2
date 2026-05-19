@@ -43,7 +43,7 @@ os.environ["{{ pkg_name | upper }}_START"] = START_TIME
 # ── Bootstrap logging so it is available for every subsequent import ──────────
 # ── init() reads LOG_LEVEL, LOG_RETENTION_DAYS, LOG_CONSOLE from .env via     ─
 # ── get_env(), which in turn uses {{ pkg_name | upper }}_ROOT_DIR set above.   ─
-from {{ pkg_name }}.logging import get_logger, init as _init_logging  # noqa: E402
+from {{ pkg_name }}.logging import init as _init_logging  # noqa: E402
 
 _init_logging()
 {% endif %}

@@ -144,7 +144,7 @@ def render_toml(answers: Answers) -> str:
 
     pkg_name = re.sub(r"[^a-zA-Z0-9_]", "_", answers.project_name)
 
-    return f"""\
+    toml = f"""\
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
@@ -169,3 +169,29 @@ where = ["src"]
 [project.scripts]
 {pkg_name} = "{pkg_name}.__main__:main"
 """
+
+    if "black" in answers.optional_deps:
+        toml += """\
+
+[tool.black]
+line-length = 88
+target-version = ["py313"]
+"""
+
+    if "isort" in answers.optional_deps:
+        toml += """\
+
+[tool.isort]
+profile = "black"
+line_length = 88
+"""
+
+    if "mypy" in answers.optional_deps:
+        toml += """\
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+"""
+
+    return toml

@@ -1603,3 +1603,22 @@ class TestGithooksStubs:
         content = (tmp_path / ".githooks" / "pre-commit").read_text()
         assert "ruff" in content
         assert "mypy" in content
+
+
+class TestFlake8Stub:
+    def test_flake8_config_created_when_selected(self, tmp_path):
+        render_stubs(_answers(optional_deps=["flake8"]), tmp_path)
+        assert (tmp_path / ".flake8").exists()
+
+    def test_flake8_config_contains_max_line_length(self, tmp_path):
+        render_stubs(_answers(optional_deps=["flake8"]), tmp_path)
+        content = (tmp_path / ".flake8").read_text()
+        assert "max-line-length = 88" in content
+
+    def test_flake8_config_not_created_when_not_selected(self, tmp_path):
+        render_stubs(_answers(optional_deps=["black"]), tmp_path)
+        assert not (tmp_path / ".flake8").exists()
+
+    def test_flake8_config_not_created_when_no_optional_deps(self, tmp_path):
+        render_stubs(_answers(optional_deps=[]), tmp_path)
+        assert not (tmp_path / ".flake8").exists()

@@ -14,6 +14,7 @@ repos:
       - id: check-toml
 {% if "detect-secrets" in optional_deps %}
       - id: detect-aws-credentials
+        args: [--allow-missing-credentials]
 {% endif %}
 
 {% if "black" in optional_deps %}
@@ -74,7 +75,8 @@ repos:
     rev: 1.7.9
     hooks:
       - id: bandit
-        args: [-q, -r, src]
+        args: [-q, -r, src/]
+        exclude: ^tests/
 
 {% endif %}
 {% if "detect-secrets" in optional_deps %}

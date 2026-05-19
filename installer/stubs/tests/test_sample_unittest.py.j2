@@ -68,7 +68,7 @@ class TestFetchUser(unittest.TestCase):
         # MagicMock can stand in for any object (DB session, HTTP client, etc.)
         self.mock_db = MagicMock()
 
-    @patch(f"tests.test_sample_unittest.fetch_user")
+    @patch("tests.test_sample_unittest.fetch_user")
     def test_fetch_user_is_called_with_id(self, mock_fetch: MagicMock) -> None:
         mock_fetch.return_value = {"id": 1, "name": "Alice"}
 

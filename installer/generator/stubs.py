@@ -227,6 +227,9 @@ def render_stubs(answers: Answers, project_root: Path) -> None:
             _render_template(env, "docs/pre-commit.md.j2", context),
         )
 
+    if "flake8" in answers.optional_deps:
+        _write(project_root / ".flake8", _render_template(env, ".flake8.j2", context))
+
     if answers.git and answers.optional_deps:
         _write_executable(
             project_root / ".githooks" / "pre-commit",

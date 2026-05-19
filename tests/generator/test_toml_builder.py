@@ -121,3 +121,44 @@ class TestRenderToml:
         )
         toml = render_toml(a)
         assert "dependencies = []" in toml
+
+    def test_black_tool_section_when_selected(self):
+        toml = render_toml(_answers(optional_deps=["black"]))
+        assert "[tool.black]" in toml
+        assert "line-length = 88" in toml
+        assert 'target-version = ["py313"]' in toml
+
+    def test_black_tool_section_absent_when_not_selected(self):
+        toml = render_toml(_answers(optional_deps=[]))
+        assert "[tool.black]" not in toml
+
+    def test_isort_tool_section_when_selected(self):
+        toml = render_toml(_answers(optional_deps=["isort"]))
+        assert "[tool.isort]" in toml
+        assert 'profile = "black"' in toml
+        assert "line_length = 88" in toml
+
+    def test_isort_tool_section_absent_when_not_selected(self):
+        toml = render_toml(_answers(optional_deps=[]))
+        assert "[tool.isort]" not in toml
+
+    def test_mypy_tool_section_when_selected(self):
+        toml = render_toml(_answers(optional_deps=["mypy"]))
+        assert "[tool.mypy]" in toml
+        assert "strict = true" in toml
+        assert 'python_version = "3.13"' in toml
+
+    def test_mypy_tool_section_absent_when_not_selected(self):
+        toml = render_toml(_answers(optional_deps=[]))
+        assert "[tool.mypy]" not in toml
+
+    def test_multiple_tool_sections_when_all_selected(self):
+        toml = render_toml(_answers(optional_deps=["black", "isort", "mypy"]))
+        assert "[tool.black]" in toml
+        assert "[tool.isort]" in toml
+        assert "[tool.mypy]" in toml
+
+    def test_rendered_toml_is_valid_with_tool_sections(self):
+        import tomllib
+        toml = render_toml(_answers(optional_deps=["black", "isort", "mypy"]))
+        tomllib.loads(toml)  # raises if invalid

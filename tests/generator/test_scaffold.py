@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from installer.generator.scaffold import create_project
+from installer.generator.scaffold import create_project, _init_secrets_baseline
 from installer.models.answers import Answers
 
 
@@ -99,3 +99,49 @@ class TestCreateProject:
         content = (root / "src" / "test_proj" / "__main__.py").read_text()
         assert "print(" in content
         assert "get_logger" not in content
+
+
+class TestInitSecretsBaseline:
+    def test_baseline_written_when_detect_secrets_succeeds(self, tmp_path):
+        with patch("installer.generator.scaffold.subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = '{"version": "1.4.0", "plugins_used": []}\n'
+            _init_secrets_baseline(tmp_path)
+            baseline = tmp_path / ".secrets.baseline"
+            assert baseline.exists()
+            assert "version" in baseline.read_text()
+
+    def test_baseline_not_written_when_detect_secrets_fails(self, tmp_path):
+        with patch("installer.generator.scaffold.subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 1
+            mock_run.return_value.stdout = ""
+            _init_secrets_baseline(tmp_path)
+            assert not (tmp_path / ".secrets.baseline").exists()
+
+    def test_baseline_skipped_when_detect_secrets_not_installed(self, tmp_path):
+        with patch(
+            "installer.generator.scaffold.subprocess.run",
+            side_effect=FileNotFoundError,
+        ):
+            _init_secrets_baseline(tmp_path)  # must not raise
+            assert not (tmp_path / ".secrets.baseline").exists()
+
+    def test_init_secrets_baseline_called_when_detect_secrets_in_optional_deps(self, tmp_path):
+        a = _answers(
+            target_path=str(tmp_path / "test-proj"),
+            git=False,
+            optional_deps=["detect-secrets"],
+        )
+        with patch("installer.generator.scaffold._init_secrets_baseline") as mock_baseline:
+            create_project(a)
+            mock_baseline.assert_called_once()
+
+    def test_init_secrets_baseline_not_called_without_detect_secrets(self, tmp_path):
+        a = _answers(
+            target_path=str(tmp_path / "test-proj"),
+            git=False,
+            optional_deps=["black"],
+        )
+        with patch("installer.generator.scaffold._init_secrets_baseline") as mock_baseline:
+            create_project(a)
+            mock_baseline.assert_not_called()

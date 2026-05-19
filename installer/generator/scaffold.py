@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 import subprocess
 import tomllib
@@ -8,6 +9,8 @@ from pathlib import Path
 from installer.generator.stubs import render_stubs
 from installer.generator.toml_builder import render_toml
 from installer.models.answers import Answers
+
+_log = logging.getLogger(__name__)
 
 
 def create_project(answers: Answers) -> Path:
@@ -51,11 +54,35 @@ def create_project(answers: Answers) -> Path:
     # ── Stubs (README, .gitignore, Dockerfile, etc.) ─────────────────────────
     render_stubs(answers, project_root)
 
+    # ── Secrets baseline (if detect-secrets selected) ────────────────────────
+    if "detect-secrets" in answers.optional_deps:
+        _init_secrets_baseline(project_root)
+
     # ── Git init ──────────────────────────────────────────────────────────────
     if answers.git:
         _git_init(project_root, use_local_hooks=bool(answers.optional_deps))
 
     return project_root
+
+
+def _init_secrets_baseline(project_root: Path) -> None:
+    """Run ``detect-secrets scan`` and write ``.secrets.baseline`` to *project_root*."""
+    try:
+        result = subprocess.run(
+            ["detect-secrets", "scan"],
+            capture_output=True,
+            text=True,
+            cwd=project_root,
+        )
+        if result.returncode == 0:
+            (project_root / ".secrets.baseline").write_text(result.stdout, encoding="utf-8")
+        else:
+            _log.warning(
+                "detect-secrets scan failed (exit %d); skipping .secrets.baseline",
+                result.returncode,
+            )
+    except FileNotFoundError:
+        _log.warning("detect-secrets not installed; skipping .secrets.baseline generation")
 
 
 def _write(path: Path, content: str) -> None:
