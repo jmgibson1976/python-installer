@@ -1,21 +1,26 @@
 # {{ project_name }} — application configuration
 #
-# Add config sections here. Access them via:
+# Access settings in code:
 #   from {{ pkg_name }}.config import settings
+#   debug = settings["app"]["debug"]   # nested TOML key
+#   name  = settings["APP_NAME"]       # flat .env key
 #
-# For dynaconf: reference env vars with @format {env[VAR_NAME]}
-# For flat overrides: set the value directly in .env
 {% if env_parsing == "dynaconf" %}
+# Dynaconf: reference env vars with @format {env[VAR_NAME]}
+# Set the matching variable in .env to override at runtime.
+
 [app]
 name = "@format {env[APP_NAME]}"
 version = "@format {env[APP_VERSION]}"
 debug = "@format {env[APP_DEBUG]}"
 {% else %}
-# Structured defaults — override individual keys with flat values in .env
-# e.g. APP_NAME=my-app in .env will be available as settings["APP_NAME"]
+# Dotenv: these are structured defaults.
+# Override any key by adding a flat entry to .env:
+#   APP_NAME=my-override  →  settings["APP_NAME"]
+# (Nested TOML keys are not replaced by .env — use get_env() in code for that.)
 
 [app]
-name = "{{ project_name }}"
-version = "{{ version }}"
-debug = false
+name = "{{ project_name }}"       # env: APP_NAME
+version = "{{ version }}"         # env: APP_VERSION
+debug = false                     # env: APP_DEBUG (true/false)
 {% endif %}

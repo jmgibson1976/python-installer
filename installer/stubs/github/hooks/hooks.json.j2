@@ -1,0 +1,21 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "type": "command",
+        "command": "python3 -m py_compile \"$TOOL_INPUT_FILE_PATH\" 2>/dev/null || true",
+        "osx": "python3 -m py_compile \"$TOOL_INPUT_FILE_PATH\" 2>/dev/null || true",
+        "linux": "python3 -m py_compile \"$TOOL_INPUT_FILE_PATH\" 2>/dev/null || true",
+        "windows": "python -m py_compile \"%TOOL_INPUT_FILE_PATH%\" 2>nul || exit 0"
+      }
+    ]{% if db_driver not in ("none", "nosql") %},
+    "PreToolUse": [
+      {
+        "type": "command",
+        "command": "echo \"$TOOL_INPUT\" | grep -qi 'drop table\\|truncate\\|delete from' && echo '{\"decision\": \"block\", \"reason\": \"Destructive SQL detected — confirm intentional before running\"}' || true",
+        "osx": "echo \"$TOOL_INPUT\" | grep -qi 'drop table\\|truncate\\|delete from' && echo '{\"decision\": \"block\", \"reason\": \"Destructive SQL detected — confirm intentional before running\"}' || true",
+        "linux": "echo \"$TOOL_INPUT\" | grep -qi 'drop table\\|truncate\\|delete from' && echo '{\"decision\": \"block\", \"reason\": \"Destructive SQL detected — confirm intentional before running\"}' || true"
+      }
+    ]{% endif %}
+  }
+}

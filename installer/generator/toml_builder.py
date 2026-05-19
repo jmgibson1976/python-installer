@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from installer.models.answers import Answers
 
 # ── Package mappings ──────────────────────────────────────────────────────────
@@ -125,7 +127,7 @@ def render_toml(answers: Answers) -> str:
         if dev_stdlib else ""
     )
 
-    pkg_name = answers.project_name.replace("-", "_")
+    pkg_name = re.sub(r"[^a-zA-Z0-9_]", "_", answers.project_name)
 
     return f"""\
 [build-system]

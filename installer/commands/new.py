@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import Optional
@@ -12,6 +13,7 @@ from rich.text import Text
 
 from installer.generator.scaffold import create_project
 from installer.models.answers import Answers
+from installer.prompts.definitions import _validate_project_name
 from installer.prompts.runner import run_prompts
 
 console = Console()
@@ -89,6 +91,10 @@ def new(
     _guard_installer_dir(base)
 
     if project_name:
+        result = _validate_project_name(project_name.strip())
+        if result is not True:
+            console.print(f"[red]Invalid project name:[/red] {result}")
+            raise typer.Exit(1)
         clean_name, target_path = _resolve_target(project_name.strip(), path)
         answers.project_name = clean_name
         answers.target_path = target_path
@@ -158,9 +164,9 @@ def _print_success(answers: Answers, project_root: Path) -> None:
         console.print("    [bold]python -m venv .venv[/bold]")
         console.print("    [bold]source .venv/bin/activate[/bold]  [dim]# Windows: .venv\\Scripts\\activate[/dim]")
         console.print("    [bold]pip install -e \".[dev]\"[/bold]")
-        console.print("    [bold]python -m " + answers.project_name.replace("-", "_") + "[/bold]")
+        console.print("    [bold]python -m " + re.sub(r"[^a-zA-Z0-9_]", "_", answers.project_name) + "[/bold]")
     else:
         console.print("    [bold]pip install -e \".[dev]\"[/bold]")
-        console.print("    [bold]python -m " + answers.project_name.replace("-", "_") + "[/bold]")
+        console.print("    [bold]python -m " + re.sub(r"[^a-zA-Z0-9_]", "_", answers.project_name) + "[/bold]")
 
     console.print()

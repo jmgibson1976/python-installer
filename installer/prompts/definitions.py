@@ -60,6 +60,13 @@ PROMPTS: list[PromptDef] = [
         required=True,
     ),
     PromptDef(
+        key="ai_setup",
+        prompt_type="confirm",
+        message="Set up AI assistant configuration (GitHub Copilot workspace files)?",
+        default=True,
+        required=True,
+    ),
+    PromptDef(
         key="docker",
         prompt_type="select",
         message="How should the project run?",

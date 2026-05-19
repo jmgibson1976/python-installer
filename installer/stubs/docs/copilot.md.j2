@@ -1,0 +1,166 @@
+# AI Assistant Guide — {{ project_name }}
+
+This project ships with a pre-configured [GitHub Copilot](https://github.com/features/copilot)
+workspace under `.github/`. This guide explains every file and how to get the most out of it.
+
+---
+
+## Directory structure
+
+```
+.github/
+├── copilot-instructions.md          ← project-wide rules (always loaded)
+├── instructions/                    ← per-filetype rules
+│   ├── python.instructions.md
+{% if testing_frameworks %}│   ├── test.instructions.md
+{% endif %}{% if db_driver not in ("none", "nosql") or docker == "docker" %}│   ├── bash.instructions.md
+{% endif %}{% if db_driver not in ("none", "nosql") %}│   ├── sql.instructions.md
+{% endif %}{% if docker == "docker" %}│   └── docker.instructions.md
+{% endif %}├── skills/
+│   └── run-tests/
+│       └── SKILL.md                 ← `/run-tests` skill
+├── agents/
+│   └── feature-planner.agent.md    ← research-only planning agent
+{% if git %}├── hooks/
+│   ├── pre-commit                   ← blocks syntax-error commits
+│   └── hooks.json                   ← Copilot lifecycle hooks
+└── prompts/
+    ├── new-feature.prompt.md        ← scaffold a new feature
+    └── plan-feature.prompt.md       ← plan a feature (agent mode)
+{% else %}└── hooks/
+    └── hooks.json                   ← Copilot lifecycle hooks
+{% endif %}```
+
+---
+
+## `copilot-instructions.md` — project-wide context
+
+Loaded automatically into **every** Copilot chat for this workspace. It tells the
+assistant about:
+
+- Project name, tech stack, and directory layout
+- Coding conventions specific to `{{ project_name }}`
+- How commands/modules are structured
+{% if db_driver != "none" %}- Database layer (`{{ db_driver }}`{% if db_abstraction != "none" %} + {{ db_abstraction }}{% endif %})
+{% endif %}{% if cli_support != "none" %}- CLI framework (`{{ cli_support }}`) and command registration
+{% endif %}
+**You should keep this file up to date** as the project evolves — add new modules,
+change patterns, or update tech choices here so Copilot always has accurate context.
+
+---
+
+## `instructions/` — per-filetype rules
+
+Instruction files use an `applyTo` frontmatter pattern so VS Code automatically
+activates them for matching file types:
+
+| File | Applies to | Content |
+|---|---|---|
+| `python.instructions.md` | `**/*.py` | Python coding style, imports, type hints |
+{% if testing_frameworks %}| `test.instructions.md` | `tests/**/*.py` | Test patterns, mock usage, fixtures |
+{% endif %}{% if db_driver not in ("none", "nosql") or docker == "docker" %}| `bash.instructions.md` | `**/*.sh` | Shell script style, error handling |
+{% endif %}{% if db_driver not in ("none", "nosql") %}| `sql.instructions.md` | `**/*.sql` | SQL style, migration conventions |
+{% endif %}{% if docker == "docker" %}| `docker.instructions.md` | `**/Dockerfile*`, `docker-compose*.yml` | Docker best practices |
+{% endif %}
+These are loaded automatically in VS Code when you open a file that matches the
+`applyTo` pattern — no manual action needed.
+
+---
+
+## `skills/run-tests/` — run the test suite from chat
+
+Invoke with `/run-tests` in any Copilot chat window.
+
+```
+/run-tests                   ← run the full suite
+/run-tests tests/test_foo.py ← run a specific file
+/run-tests -k test_login     ← run by pattern
+```
+
+The skill will:
+1. Run the tests and capture output
+2. Report counts (passed / failed / skipped)
+3. Show full tracebacks for failures
+4. Propose fixes (but ask before applying them)
+
+---
+
+## `agents/feature-planner.agent.md` — research-only planning agent
+
+Open Copilot chat and select **feature-planner** from the agent picker, or use the
+`plan-feature` prompt (see below).
+
+This agent is **read-only** — it explores the codebase but never edits files.
+It produces a structured implementation plan with:
+
+- Summary of the feature
+- Files to create / modify with specific paths
+- Implementation checklist
+{% if testing_frameworks %}- Test cases to add
+{% endif %}{% if db_driver not in ("none", "nosql") %}- Migration files to create (if DB changes are needed)
+{% endif %}
+Once you approve the plan, hand off to the standard Copilot agent (or do it yourself).
+
+**Usage:** Type the feature name when prompted, e.g. `user-auth`, `csv-export`.
+
+---
+{% if git %}
+## `prompts/` — reusable prompt templates
+
+### `new-feature.prompt.md` — scaffold a new feature
+
+Runs in `ask` mode (interactive, asks clarifying questions before writing code).
+
+**To use:** Open it with `@workspace /prompts/new-feature.prompt.md` or click
+the prompt file in VS Code and run it from the editor toolbar.
+
+You will be prompted for a feature name. The prompt then guides Copilot to:
+- Create implementation files under `src/{{ pkg_name }}/`
+{% if cli_support != "none" %}- Register a CLI command (if the feature exposes one)
+{% endif %}{% if db_driver not in ("none", "nosql") %}- Create migration files (if a DB table is needed)
+{% endif %}{% if testing_frameworks %}- Add tests
+{% endif %}{% if env_parsing != "none" %}- Add env vars to `.env.example`
+{% endif %}
+### `plan-feature.prompt.md` — plan before building
+
+Runs in `feature-planner` agent mode — research only, no file edits.
+
+Use this when you want a detailed plan to review *before* Copilot touches any code.
+Enter the feature name when prompted and the planner will return a full checklist.
+
+---
+{% endif %}
+## `hooks/hooks.json` — Copilot lifecycle hooks
+
+Automatically loaded by VS Code when you open this workspace. Active hooks:
+
+| Event | Action |
+|---|---|
+| `PostToolUse` (file edit) | Syntax-check edited `.py` files with `py_compile`; alert if broken |
+{% if db_driver not in ("none", "nosql") %}| `PreToolUse` (shell command) | Block destructive SQL (`DROP TABLE`, `TRUNCATE`, etc.) without confirmation |
+{% endif %}
+These run silently in the background — you'll only see a notification if a check fails.
+{% if git %}
+### `hooks/pre-commit` — git hook
+
+Installed at `.github/hooks/pre-commit` (not `.git/hooks/`). To activate it:
+
+```bash
+cp .github/hooks/pre-commit .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+```
+
+Once active it will **block commits** that contain Python syntax errors.
+{% endif %}
+
+---
+
+## Tips
+
+- **Keep `copilot-instructions.md` current.** It's the most impactful file — stale
+  context leads to worse suggestions.
+- **Add new instruction files** for new file types as the project grows (e.g.
+  `yaml.instructions.md` if you add complex YAML configs).
+- **Skills are discoverable** — type `/` in Copilot chat to see all available skills.
+- **Agents are composable** — you can add `handoffs` to the agent frontmatter to
+  chain agents together for multi-step workflows.

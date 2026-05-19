@@ -1,0 +1,58 @@
+---
+applyTo: "tests/**/*.py"
+---
+
+# Test Instructions
+
+## Structure & File Conventions
+
+- Tests live in `tests/` mirroring `src/{{ pkg_name }}/` (e.g. `src/{{ pkg_name }}/database.py` → `tests/test_database.py`).
+- Group related tests inside a class named `Test<Subject>`.
+- Each test file imports only from public module APIs — never reach into private helpers unless explicitly testing them.
+
+## Fixtures & Helpers
+
+- Always use `tmp_path` for filesystem operations — never hardcode temp paths.
+{% if "pytest" in testing_frameworks %}
+- Use pytest fixtures for shared setup — prefer `conftest.py` for fixtures shared across multiple test files.
+{% endif %}
+
+## Mocking Rules
+
+- Mock at the boundary of the unit under test — never mock internals of the module you are testing.
+{% if "mock" in testing_frameworks %}
+- Use `unittest.mock.patch` as a context manager or decorator — prefer `patch.object` over string-path mocking when the target is importable directly.
+- Use `MagicMock` for objects with dynamic attribute access; use `Mock` for simple callables.
+{% endif %}
+{% if db_driver != "none" %}
+- In database tests, mock at the session/connection level — do not use a real database in unit tests. Use a temporary SQLite `:memory:` database for integration tests only.
+{% endif %}
+
+## Test Quality Standards
+
+- Test names must describe the scenario: `test_<function>_<condition>_<expected_outcome>`.
+- Assert one logical concept per test; split unrelated assertions into separate tests.
+- Cover error paths and edge cases — not just the happy path.
+{% if "pytest" in testing_frameworks %}
+
+## pytest Conventions
+
+- Use `pytest.raises(ExceptionType)` for expected exceptions — never try/except in tests.
+- Use parametrize for table-driven tests: `@pytest.mark.parametrize("input,expected", [...])`.
+- Mark slow tests with `@pytest.mark.slow` so they can be excluded during fast local runs.
+{% endif %}
+{% if "unittest" in testing_frameworks %}
+
+## unittest Conventions
+
+- Extend `unittest.TestCase`; use `setUp` / `tearDown` for shared state.
+- Use `self.assert*` methods — do not mix pytest assertions with `unittest.TestCase`.
+{% endif %}
+
+## When to Add Tests
+
+Always add tests when:
+- Adding a new public function or method.
+- Fixing a bug — add a test that would have caught it.
+- Changing conditional logic (new branch = new test).
+- Adding a new CLI command or argument.

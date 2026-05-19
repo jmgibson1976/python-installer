@@ -76,5 +76,5 @@ class TestPromptRegistry:
         assert "venv" in p.choices
         assert "none" in p.choices
 
-    def test_eleven_prompts_defined(self):
-        assert len(PROMPTS) == 11
+    def test_twelve_prompts_defined(self):
+        assert len(PROMPTS) == 12

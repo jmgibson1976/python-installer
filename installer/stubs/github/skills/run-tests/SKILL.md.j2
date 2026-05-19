@@ -1,0 +1,69 @@
+---
+name: run-tests
+description: >
+  Runs the test suite for {{ project_name }} and reports results.
+  Use when asked to run tests, check test coverage, fix failing tests,
+  or verify that a change hasn't broken anything.
+argument-hint: "[test path or pattern — leave blank to run all tests]"
+---
+
+# Run Tests Skill
+
+## Purpose
+
+Run the `{{ project_name }}` test suite and clearly summarize the results.
+
+## How to invoke
+
+The agent will automatically use this skill when:
+- Asked to run, execute, or check tests
+- Asked whether a change is safe to merge
+- Asked to fix failing tests
+- Asked for test coverage information
+
+You can also invoke it manually with `/run-tests` in chat.
+
+## Procedure
+
+1. Determine the scope:
+   - No argument → run the full test suite
+   - Argument provided → use it as a path or pattern filter
+
+2. Run the tests using the appropriate command for this project:
+{% if "pytest" in testing_frameworks %}
+   ```
+   python -m pytest {{ "${input}" if false else "" }} -v
+   ```
+   With a filter: `python -m pytest <path-or-pattern> -v`
+{% elif "unittest" in testing_frameworks %}
+   ```
+   python -m unittest discover -s tests
+   ```
+{% else %}
+   ```
+   python -m pytest -v
+   ```
+{% endif %}
+
+3. Parse the output and report:
+   - Total tests run, passed, failed, skipped
+   - Full traceback for each failure
+   - Any warnings that may indicate problems
+
+4. If tests fail:
+   - Identify the root cause from the traceback
+   - Propose a fix, but do not apply it without confirmation
+   - Re-run only the failing tests after the fix is applied to verify
+
+## Output format
+
+Summarize results as:
+
+```
+✅ X passed  ❌ Y failed  ⏭️ Z skipped
+
+Failures:
+- test_name: one-line description of failure
+```
+
+If all tests pass, confirm clearly: "All X tests passed."

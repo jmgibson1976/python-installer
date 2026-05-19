@@ -236,3 +236,25 @@ from {{ pkg_name }}.env import reload_env
 reload_env()
 ```
 {% endif %}
+{% if ai_setup %}
+
+## AI assistant (GitHub Copilot)
+
+This project includes a `.github/` workspace configuration for GitHub Copilot.
+See [`docs/copilot.md`](docs/copilot.md) for a full guide on what's included and how to use it.
+
+### Quick reference
+
+| File / directory | Purpose |
+|---|---|
+| `.github/copilot-instructions.md` | Project-specific rules loaded into every Copilot chat |
+| `.github/instructions/` | Per-file-type coding conventions (`applyTo` pattern) |
+| `.github/skills/run-tests/` | `/run-tests` skill — run the test suite from chat |
+| `.github/agents/feature-planner.agent.md` | Research-only planning agent (no file edits) |
+{% if git -%}
+| `.github/prompts/new-feature.prompt.md` | Prompt: scaffold a new feature end-to-end |
+| `.github/prompts/plan-feature.prompt.md` | Prompt: plan a feature using the planner agent |
+| `.github/hooks/pre-commit` | Git hook: block commits with syntax errors |
+{% endif -%}
+| `.github/hooks/hooks.json` | Copilot lifecycle hooks (auto-syntax check on save) |
+{% endif %}

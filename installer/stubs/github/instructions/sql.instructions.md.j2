@@ -1,0 +1,55 @@
+---
+applyTo: "database/**/*.sql"
+---
+
+# SQL Instructions
+
+## Migration File Conventions
+
+- Name every migration file with a zero-padded four-digit sequence number:
+  `0001_create_users.up.sql`, `0001_create_users.down.sql`
+- Every `.up.sql` must have a corresponding `.down.sql` that fully reverses it.
+- Never modify an existing migration — create a new one instead.
+
+## SQL Style
+
+- Use uppercase for SQL keywords: `SELECT`, `INSERT`, `CREATE TABLE`, `DROP TABLE`.
+- Always specify `NOT NULL` or `DEFAULT` for every column — avoid implicit nullability.
+- Use `IF EXISTS` / `IF NOT EXISTS` guards where supported to make scripts idempotent:
+  ```sql
+  CREATE TABLE IF NOT EXISTS users (...);
+  DROP TABLE IF EXISTS users;
+  ```
+- Add a comment at the top of every file describing what it does:
+  ```sql
+  -- Migration: create users table
+  -- Up: creates the users table with id, name, email
+  ```
+
+## Seeder Conventions
+
+- Seeder files live in `database/seeders/` and are named `NNN_description.sql`.
+- Seed inserts must be idempotent — use `INSERT OR IGNORE`, `ON CONFLICT DO NOTHING`, or check for existence before inserting.
+- Seeders are for development/test data only — never seed production secrets or credentials.
+{% if db_driver == "postgresql" %}
+
+## PostgreSQL-Specific Rules
+
+- Use `SERIAL` or `BIGSERIAL` for auto-incrementing primary keys (or `GENERATED ALWAYS AS IDENTITY`).
+- Use `TEXT` instead of `VARCHAR(n)` unless a specific length limit is required.
+- Wrap related DDL changes in a transaction block where possible.
+{% elif db_driver == "mysql" %}
+
+## MySQL-Specific Rules
+
+- Use `INT AUTO_INCREMENT` for auto-incrementing primary keys.
+- Specify `ENGINE=InnoDB` and `DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci` on every table.
+- Use `VARCHAR(255)` for short string columns; `TEXT` for long content.
+{% elif db_driver == "sqlite" %}
+
+## SQLite-Specific Rules
+
+- Use `INTEGER PRIMARY KEY AUTOINCREMENT` for auto-incrementing keys.
+- SQLite does not enforce foreign key constraints by default — run `PRAGMA foreign_keys = ON;` in the connection setup.
+- Avoid `ALTER TABLE` beyond `ADD COLUMN` — SQLite has limited DDL support; use a new migration to rebuild the table if needed.
+{% endif %}

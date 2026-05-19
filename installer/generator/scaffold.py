@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import subprocess
 import tomllib
 from pathlib import Path
@@ -16,7 +17,7 @@ def create_project(answers: Answers) -> Path:
     Returns the path to the created project root.
     """
     project_root = Path(answers.target_path)
-    pkg_name = answers.project_name.replace("-", "_")
+    pkg_name = re.sub(r"[^a-zA-Z0-9_]", "_", answers.project_name)
 
     # ── Directory tree ────────────────────────────────────────────────────────
     src_pkg = project_root / "src" / pkg_name

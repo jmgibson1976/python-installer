@@ -1061,3 +1061,339 @@ class TestDatabaseDocs:
         content = (tmp_path / "README.md").read_text()
         assert "migrate.sh" in content
         assert "seed.sh" in content
+
+
+class TestGithubStubs:
+    def test_copilot_instructions_always_created(self, tmp_path):
+        render_stubs(_answers(), tmp_path)
+        assert (tmp_path / ".github" / "copilot-instructions.md").exists()
+
+    def test_copilot_instructions_contains_project_name(self, tmp_path):
+        render_stubs(_answers(project_name="my-cool-app"), tmp_path)
+        content = (tmp_path / ".github" / "copilot-instructions.md").read_text()
+        assert "my-cool-app" in content
+
+    def test_python_instructions_always_created(self, tmp_path):
+        render_stubs(_answers(), tmp_path)
+        assert (tmp_path / ".github" / "instructions" / "python.instructions.md").exists()
+
+    def test_python_instructions_has_apply_to(self, tmp_path):
+        render_stubs(_answers(), tmp_path)
+        content = (tmp_path / ".github" / "instructions" / "python.instructions.md").read_text()
+        assert "applyTo" in content
+        assert "**/*.py" in content
+
+    def test_python_instructions_includes_get_env_rule_when_dotenv(self, tmp_path):
+        render_stubs(_answers(env_parsing="dotenv"), tmp_path)
+        content = (tmp_path / ".github" / "instructions" / "python.instructions.md").read_text()
+        assert "get_env" in content
+
+    def test_python_instructions_no_get_env_rule_when_no_env(self, tmp_path):
+        render_stubs(_answers(env_parsing="none", logging=False), tmp_path)
+        content = (tmp_path / ".github" / "instructions" / "python.instructions.md").read_text()
+        assert "get_env" not in content
+
+    def test_test_instructions_created_when_frameworks_selected(self, tmp_path):
+        render_stubs(_answers(testing_frameworks=["pytest"]), tmp_path)
+        assert (tmp_path / ".github" / "instructions" / "test.instructions.md").exists()
+
+    def test_test_instructions_not_created_when_no_frameworks(self, tmp_path):
+        render_stubs(_answers(testing_frameworks=[]), tmp_path)
+        assert not (tmp_path / ".github" / "instructions" / "test.instructions.md").exists()
+
+    def test_test_instructions_has_apply_to(self, tmp_path):
+        render_stubs(_answers(testing_frameworks=["pytest"]), tmp_path)
+        content = (tmp_path / ".github" / "instructions" / "test.instructions.md").read_text()
+        assert "applyTo" in content
+        assert "tests/**/*.py" in content
+
+    def test_bash_instructions_created_when_sql_driver(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        assert (tmp_path / ".github" / "instructions" / "bash.instructions.md").exists()
+
+    def test_bash_instructions_created_when_docker(self, tmp_path):
+        render_stubs(_answers(docker="docker"), tmp_path)
+        assert (tmp_path / ".github" / "instructions" / "bash.instructions.md").exists()
+
+    def test_bash_instructions_not_created_when_no_db_no_docker(self, tmp_path):
+        render_stubs(_answers(db_driver="none", docker="venv"), tmp_path)
+        assert not (tmp_path / ".github" / "instructions" / "bash.instructions.md").exists()
+
+    def test_bash_instructions_has_set_euo_pipefail(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        content = (tmp_path / ".github" / "instructions" / "bash.instructions.md").read_text()
+        assert "set -euo pipefail" in content
+
+    def test_sql_instructions_created_when_sql_driver(self, tmp_path):
+        render_stubs(_answers(db_driver="postgresql"), tmp_path)
+        assert (tmp_path / ".github" / "instructions" / "sql.instructions.md").exists()
+
+    def test_sql_instructions_not_created_when_nosql(self, tmp_path):
+        render_stubs(_answers(db_driver="nosql"), tmp_path)
+        assert not (tmp_path / ".github" / "instructions" / "sql.instructions.md").exists()
+
+    def test_sql_instructions_not_created_when_no_driver(self, tmp_path):
+        render_stubs(_answers(db_driver="none"), tmp_path)
+        assert not (tmp_path / ".github" / "instructions" / "sql.instructions.md").exists()
+
+    def test_sql_instructions_has_apply_to(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        content = (tmp_path / ".github" / "instructions" / "sql.instructions.md").read_text()
+        assert "applyTo" in content
+        assert "database/**/*.sql" in content
+
+    def test_sql_instructions_contains_driver_specific_section(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        content = (tmp_path / ".github" / "instructions" / "sql.instructions.md").read_text()
+        assert "SQLite" in content
+
+    def test_docker_instructions_created_when_docker(self, tmp_path):
+        render_stubs(_answers(docker="docker"), tmp_path)
+        assert (tmp_path / ".github" / "instructions" / "docker.instructions.md").exists()
+
+    def test_docker_instructions_not_created_when_venv(self, tmp_path):
+        render_stubs(_answers(docker="venv"), tmp_path)
+        assert not (tmp_path / ".github" / "instructions" / "docker.instructions.md").exists()
+
+    def test_docker_instructions_has_apply_to(self, tmp_path):
+        render_stubs(_answers(docker="docker"), tmp_path)
+        content = (tmp_path / ".github" / "instructions" / "docker.instructions.md").read_text()
+        assert "applyTo" in content
+        assert "Dockerfile" in content
+
+    def test_hook_created_when_git(self, tmp_path):
+        render_stubs(_answers(git=True), tmp_path)
+        assert (tmp_path / ".github" / "hooks" / "pre-commit").exists()
+
+    def test_hook_not_created_when_no_git(self, tmp_path):
+        render_stubs(_answers(git=False), tmp_path)
+        assert not (tmp_path / ".github" / "hooks" / "pre-commit").exists()
+
+    def test_hook_is_executable(self, tmp_path):
+        render_stubs(_answers(git=True), tmp_path)
+        hook = tmp_path / ".github" / "hooks" / "pre-commit"
+        assert hook.stat().st_mode & 0o111
+
+    def test_hook_has_shebang(self, tmp_path):
+        render_stubs(_answers(git=True), tmp_path)
+        content = (tmp_path / ".github" / "hooks" / "pre-commit").read_text()
+        assert content.startswith("#!/usr/bin/env bash")
+
+    def test_prompt_created_when_git(self, tmp_path):
+        render_stubs(_answers(git=True), tmp_path)
+        assert (tmp_path / ".github" / "prompts" / "new-feature.prompt.md").exists()
+
+    def test_prompt_not_created_when_no_git(self, tmp_path):
+        render_stubs(_answers(git=False), tmp_path)
+        assert not (tmp_path / ".github" / "prompts" / "new-feature.prompt.md").exists()
+
+    def test_prompt_has_agent_frontmatter(self, tmp_path):
+        render_stubs(_answers(git=True), tmp_path)
+        content = (tmp_path / ".github" / "prompts" / "new-feature.prompt.md").read_text()
+        assert "agent: ask" in content
+        assert "mode:" not in content
+
+    def test_prompt_has_input_variable(self, tmp_path):
+        render_stubs(_answers(git=True), tmp_path)
+        content = (tmp_path / ".github" / "prompts" / "new-feature.prompt.md").read_text()
+        assert "${input:" in content
+
+    def test_prompt_contains_project_name(self, tmp_path):
+        render_stubs(_answers(project_name="my-project", git=True), tmp_path)
+        content = (tmp_path / ".github" / "prompts" / "new-feature.prompt.md").read_text()
+        assert "my-project" in content
+
+    def test_copilot_instructions_shows_cli_section_when_cli_support(self, tmp_path):
+        render_stubs(_answers(cli_support="typer"), tmp_path)
+        content = (tmp_path / ".github" / "copilot-instructions.md").read_text()
+        assert "Typer" in content
+
+    def test_copilot_instructions_shows_db_section_when_db_driver(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        content = (tmp_path / ".github" / "copilot-instructions.md").read_text()
+        assert "sqlite" in content
+
+    def test_copilot_instructions_no_docker_section_when_venv(self, tmp_path):
+        render_stubs(_answers(docker="venv"), tmp_path)
+        content = (tmp_path / ".github" / "copilot-instructions.md").read_text()
+        assert "Docker" not in content
+
+    def test_hooks_json_always_created(self, tmp_path):
+        render_stubs(_answers(), tmp_path)
+        assert (tmp_path / ".github" / "hooks" / "hooks.json").exists()
+
+    def test_hooks_json_is_valid_json(self, tmp_path):
+        import json
+        render_stubs(_answers(), tmp_path)
+        content = (tmp_path / ".github" / "hooks" / "hooks.json").read_text()
+        parsed = json.loads(content)
+        assert "hooks" in parsed
+
+    def test_hooks_json_has_post_tool_use(self, tmp_path):
+        render_stubs(_answers(), tmp_path)
+        import json
+        content = json.loads((tmp_path / ".github" / "hooks" / "hooks.json").read_text())
+        assert "PostToolUse" in content["hooks"]
+
+    def test_hooks_json_has_pre_tool_use_when_sql_driver(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        import json
+        content = json.loads((tmp_path / ".github" / "hooks" / "hooks.json").read_text())
+        assert "PreToolUse" in content["hooks"]
+
+    def test_hooks_json_no_pre_tool_use_when_no_db(self, tmp_path):
+        render_stubs(_answers(db_driver="none"), tmp_path)
+        import json
+        content = json.loads((tmp_path / ".github" / "hooks" / "hooks.json").read_text())
+        assert "PreToolUse" not in content["hooks"]
+
+    def test_skill_always_created(self, tmp_path):
+        render_stubs(_answers(), tmp_path)
+        assert (tmp_path / ".github" / "skills" / "run-tests" / "SKILL.md").exists()
+
+    def test_skill_has_valid_frontmatter_name(self, tmp_path):
+        render_stubs(_answers(), tmp_path)
+        content = (tmp_path / ".github" / "skills" / "run-tests" / "SKILL.md").read_text()
+        assert "name: run-tests" in content
+
+    def test_skill_has_description(self, tmp_path):
+        render_stubs(_answers(), tmp_path)
+        content = (tmp_path / ".github" / "skills" / "run-tests" / "SKILL.md").read_text()
+        assert "description:" in content
+
+    def test_skill_contains_project_name(self, tmp_path):
+        render_stubs(_answers(project_name="my-app"), tmp_path)
+        content = (tmp_path / ".github" / "skills" / "run-tests" / "SKILL.md").read_text()
+        assert "my-app" in content
+
+    def test_skill_shows_pytest_command_when_pytest_selected(self, tmp_path):
+        render_stubs(_answers(testing_frameworks=["pytest"]), tmp_path)
+        content = (tmp_path / ".github" / "skills" / "run-tests" / "SKILL.md").read_text()
+        assert "pytest" in content
+
+    def test_agent_always_created(self, tmp_path):
+        render_stubs(_answers(), tmp_path)
+        assert (tmp_path / ".github" / "agents" / "feature-planner.agent.md").exists()
+
+    def test_agent_has_name_frontmatter(self, tmp_path):
+        render_stubs(_answers(), tmp_path)
+        content = (tmp_path / ".github" / "agents" / "feature-planner.agent.md").read_text()
+        assert "name: feature-planner" in content
+
+    def test_agent_has_argument_hint(self, tmp_path):
+        render_stubs(_answers(), tmp_path)
+        content = (tmp_path / ".github" / "agents" / "feature-planner.agent.md").read_text()
+        assert "argument-hint:" in content
+
+    def test_agent_has_tools_list(self, tmp_path):
+        render_stubs(_answers(), tmp_path)
+        content = (tmp_path / ".github" / "agents" / "feature-planner.agent.md").read_text()
+        assert "tools:" in content
+
+    def test_agent_contains_project_name(self, tmp_path):
+        render_stubs(_answers(project_name="my-app"), tmp_path)
+        content = (tmp_path / ".github" / "agents" / "feature-planner.agent.md").read_text()
+        assert "my-app" in content
+
+    def test_agent_mentions_db_when_db_selected(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        content = (tmp_path / ".github" / "agents" / "feature-planner.agent.md").read_text()
+        assert "database.py" in content
+
+    def test_plan_prompt_created_when_git(self, tmp_path):
+        render_stubs(_answers(git=True), tmp_path)
+        assert (tmp_path / ".github" / "prompts" / "plan-feature.prompt.md").exists()
+
+    def test_plan_prompt_not_created_when_no_git(self, tmp_path):
+        render_stubs(_answers(git=False), tmp_path)
+        assert not (tmp_path / ".github" / "prompts" / "plan-feature.prompt.md").exists()
+
+    def test_plan_prompt_targets_feature_planner_agent(self, tmp_path):
+        render_stubs(_answers(git=True), tmp_path)
+        content = (tmp_path / ".github" / "prompts" / "plan-feature.prompt.md").read_text()
+        assert "agent: feature-planner" in content
+
+    def test_plan_prompt_has_input_variable(self, tmp_path):
+        render_stubs(_answers(git=True), tmp_path)
+        content = (tmp_path / ".github" / "prompts" / "plan-feature.prompt.md").read_text()
+        assert "${input:" in content
+
+    def test_plan_prompt_contains_project_name(self, tmp_path):
+        render_stubs(_answers(project_name="my-app", git=True), tmp_path)
+        content = (tmp_path / ".github" / "prompts" / "plan-feature.prompt.md").read_text()
+        assert "my-app" in content
+
+    # ai_setup gating tests
+    def test_github_dir_not_created_when_ai_setup_false(self, tmp_path):
+        render_stubs(_answers(ai_setup=False), tmp_path)
+        assert not (tmp_path / ".github").exists()
+
+    def test_github_dir_created_when_ai_setup_true(self, tmp_path):
+        render_stubs(_answers(ai_setup=True), tmp_path)
+        assert (tmp_path / ".github").exists()
+
+    def test_copilot_instructions_not_created_when_ai_setup_false(self, tmp_path):
+        render_stubs(_answers(ai_setup=False), tmp_path)
+        assert not (tmp_path / ".github" / "copilot-instructions.md").exists()
+
+    def test_hooks_json_not_created_when_ai_setup_false(self, tmp_path):
+        render_stubs(_answers(ai_setup=False), tmp_path)
+        assert not (tmp_path / ".github" / "hooks" / "hooks.json").exists()
+
+    def test_skill_not_created_when_ai_setup_false(self, tmp_path):
+        render_stubs(_answers(ai_setup=False), tmp_path)
+        assert not (tmp_path / ".github" / "skills" / "run-tests" / "SKILL.md").exists()
+
+    def test_agent_not_created_when_ai_setup_false(self, tmp_path):
+        render_stubs(_answers(ai_setup=False), tmp_path)
+        assert not (tmp_path / ".github" / "agents" / "feature-planner.agent.md").exists()
+
+    def test_prompts_not_created_when_ai_setup_false(self, tmp_path):
+        render_stubs(_answers(ai_setup=False, git=True), tmp_path)
+        assert not (tmp_path / ".github" / "prompts").exists()
+
+    # docs/copilot.md tests
+    def test_copilot_docs_created_when_ai_setup_true(self, tmp_path):
+        render_stubs(_answers(ai_setup=True), tmp_path)
+        assert (tmp_path / "docs" / "copilot.md").exists()
+
+    def test_copilot_docs_not_created_when_ai_setup_false(self, tmp_path):
+        render_stubs(_answers(ai_setup=False), tmp_path)
+        assert not (tmp_path / "docs" / "copilot.md").exists()
+
+    def test_copilot_docs_contains_project_name(self, tmp_path):
+        render_stubs(_answers(project_name="my-app", ai_setup=True), tmp_path)
+        content = (tmp_path / "docs" / "copilot.md").read_text()
+        assert "my-app" in content
+
+    def test_copilot_docs_mentions_db_section_when_db_selected(self, tmp_path):
+        render_stubs(_answers(ai_setup=True, db_driver="sqlite"), tmp_path)
+        content = (tmp_path / "docs" / "copilot.md").read_text()
+        assert "sql.instructions.md" in content
+
+    def test_copilot_docs_no_db_section_when_no_db(self, tmp_path):
+        render_stubs(_answers(ai_setup=True, db_driver="none"), tmp_path)
+        content = (tmp_path / "docs" / "copilot.md").read_text()
+        assert "sql.instructions.md" not in content
+
+    def test_copilot_docs_mentions_prompts_when_git(self, tmp_path):
+        render_stubs(_answers(ai_setup=True, git=True), tmp_path)
+        content = (tmp_path / "docs" / "copilot.md").read_text()
+        assert "new-feature.prompt.md" in content
+
+    def test_copilot_docs_no_prompts_section_when_no_git(self, tmp_path):
+        render_stubs(_answers(ai_setup=True, git=False), tmp_path)
+        content = (tmp_path / "docs" / "copilot.md").read_text()
+        assert "new-feature.prompt.md" not in content
+
+    # README AI section tests
+    def test_readme_has_ai_section_when_ai_setup_true(self, tmp_path):
+        render_stubs(_answers(ai_setup=True), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "GitHub Copilot" in content
+        assert "docs/copilot.md" in content
+
+    def test_readme_no_ai_section_when_ai_setup_false(self, tmp_path):
+        render_stubs(_answers(ai_setup=False), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "docs/copilot.md" not in content

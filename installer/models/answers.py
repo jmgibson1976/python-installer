@@ -15,6 +15,7 @@ class Answers:
 
     # Infrastructure
     git: bool = True
+    ai_setup: bool = True
     docker: str = "venv"
 
     # Data layer
@@ -38,6 +39,7 @@ class Answers:
             "version": self.version,
             "target_path": self.target_path,
             "git": self.git,
+            "ai_setup": self.ai_setup,
             "docker": self.docker,
             "db_driver": self.db_driver,
             "db_abstraction": self.db_abstraction,
