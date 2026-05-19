@@ -36,6 +36,7 @@ def _stub_context(answers: Answers) -> dict:
         "env_parsing": answers.env_parsing,
         "cli_support": answers.cli_support,
         "docker": answers.docker,
+        "optional_deps": answers.optional_deps,
         "use_mock": "mock" in answers.testing_frameworks,
     }
 
@@ -74,6 +75,8 @@ def render_stubs(answers: Answers, project_root: Path) -> None:
       - scripts/rollback.sh                    (when db_driver is sql)
       - scripts/refresh.sh                     (when db_driver is sql)
       - scripts/seed.sh                        (when db_driver is sql)
+      - .pre-commit-config.yaml              (when any optional_deps are selected)
+      - docs/pre-commit.md                    (when any optional_deps are selected)
       - .github/copilot-instructions.md        (when ai_setup=True)
       - .github/instructions/python.instructions.md  (when ai_setup=True)
       - .github/instructions/test.instructions.md    (when ai_setup=True and testing_frameworks non-empty)
@@ -209,6 +212,16 @@ def render_stubs(answers: Answers, project_root: Path) -> None:
                 project_root / "scripts" / "seed.sh",
                 _render_template(env, "scripts/seed.sh.j2", context),
             )
+
+    if answers.optional_deps:
+        _write(
+            project_root / ".pre-commit-config.yaml",
+            _render_template(env, ".pre-commit-config.yaml.j2", context),
+        )
+        _write(
+            project_root / "docs" / "pre-commit.md",
+            _render_template(env, "docs/pre-commit.md.j2", context),
+        )
 
     if answers.ai_setup:
         is_sql_driver = answers.db_driver not in ("none", "nosql")

@@ -46,6 +46,17 @@ _CLI_PACKAGES: dict[str, list[str]] = {
     "argparse": [],         # stdlib
 }
 
+_OPTIONAL_DEV_PACKAGES: dict[str, list[str]] = {
+    "black": ["black"],
+    "ruff": ["ruff"],
+    "flake8": ["flake8"],
+    "isort": ["isort"],
+    "mypy": ["mypy"],
+    "pyupgrade": [],        # pre-commit hook only — no pip install needed
+    "bandit": ["bandit"],
+    "detect-secrets": ["detect-secrets"],
+}
+
 # ── Stdlib display names (for TOML comments) ──────────────────────────────────
 # Maps internal key → human-readable stdlib module name shown in comments.
 
@@ -98,7 +109,11 @@ def build_dependencies(answers: Answers) -> tuple[list[str], list[str]]:
     for fw in answers.testing_frameworks:
         dev.extend(_TESTING_PACKAGES.get(fw, []))
 
-    dev.extend(answers.optional_deps)
+    for tool in answers.optional_deps:
+        dev.extend(_OPTIONAL_DEV_PACKAGES.get(tool, []))
+
+    if answers.optional_deps:
+        dev.append("pre-commit")
 
     # Deduplicate while preserving order
     runtime = list(dict.fromkeys(runtime))

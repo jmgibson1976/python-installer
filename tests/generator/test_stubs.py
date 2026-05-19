@@ -1397,3 +1397,157 @@ class TestGithubStubs:
         render_stubs(_answers(ai_setup=False), tmp_path)
         content = (tmp_path / "README.md").read_text()
         assert "docs/copilot.md" not in content
+
+
+class TestPreCommitStub:
+    def test_config_generated_when_tools_selected(self, tmp_path):
+        render_stubs(_answers(optional_deps=["black", "ruff"]), tmp_path)
+        assert (tmp_path / ".pre-commit-config.yaml").exists()
+
+    def test_config_not_generated_when_no_tools(self, tmp_path):
+        render_stubs(_answers(optional_deps=[]), tmp_path)
+        assert not (tmp_path / ".pre-commit-config.yaml").exists()
+
+    def test_hygiene_hooks_always_present(self, tmp_path):
+        render_stubs(_answers(optional_deps=["ruff"]), tmp_path)
+        content = (tmp_path / ".pre-commit-config.yaml").read_text()
+        assert "trailing-whitespace" in content
+        assert "end-of-file-fixer" in content
+        assert "check-added-large-files" in content
+        assert "check-merge-conflict" in content
+        assert "mixed-line-ending" in content
+        assert "check-ast" in content
+        assert "debug-statements" in content
+        assert "check-yaml" in content
+        assert "check-toml" in content
+
+    def test_black_section_when_selected(self, tmp_path):
+        render_stubs(_answers(optional_deps=["black"]), tmp_path)
+        content = (tmp_path / ".pre-commit-config.yaml").read_text()
+        assert "psf/black" in content
+        assert "id: black" in content
+
+    def test_black_section_absent_when_not_selected(self, tmp_path):
+        render_stubs(_answers(optional_deps=["ruff"]), tmp_path)
+        content = (tmp_path / ".pre-commit-config.yaml").read_text()
+        assert "psf/black" not in content
+
+    def test_ruff_section_when_selected(self, tmp_path):
+        render_stubs(_answers(optional_deps=["ruff"]), tmp_path)
+        content = (tmp_path / ".pre-commit-config.yaml").read_text()
+        assert "ruff-pre-commit" in content
+        assert "id: ruff" in content
+
+    def test_flake8_section_when_selected(self, tmp_path):
+        render_stubs(_answers(optional_deps=["flake8"]), tmp_path)
+        content = (tmp_path / ".pre-commit-config.yaml").read_text()
+        assert "PyCQA/flake8" in content
+        assert "id: flake8" in content
+
+    def test_isort_section_when_selected(self, tmp_path):
+        render_stubs(_answers(optional_deps=["isort"]), tmp_path)
+        content = (tmp_path / ".pre-commit-config.yaml").read_text()
+        assert "PyCQA/isort" in content
+        assert "id: isort" in content
+
+    def test_mypy_section_when_selected(self, tmp_path):
+        render_stubs(_answers(optional_deps=["mypy"]), tmp_path)
+        content = (tmp_path / ".pre-commit-config.yaml").read_text()
+        assert "mirrors-mypy" in content
+        assert "id: mypy" in content
+
+    def test_pyupgrade_section_when_selected(self, tmp_path):
+        render_stubs(_answers(optional_deps=["pyupgrade"]), tmp_path)
+        content = (tmp_path / ".pre-commit-config.yaml").read_text()
+        assert "asottile/pyupgrade" in content
+        assert "id: pyupgrade" in content
+
+    def test_bandit_section_when_selected(self, tmp_path):
+        render_stubs(_answers(optional_deps=["bandit"]), tmp_path)
+        content = (tmp_path / ".pre-commit-config.yaml").read_text()
+        assert "PyCQA/bandit" in content
+        assert "id: bandit" in content
+
+    def test_detect_secrets_section_when_selected(self, tmp_path):
+        render_stubs(_answers(optional_deps=["detect-secrets"]), tmp_path)
+        content = (tmp_path / ".pre-commit-config.yaml").read_text()
+        assert "Yelp/detect-secrets" in content
+        assert "id: detect-secrets" in content
+
+    def test_detect_aws_credentials_added_with_detect_secrets(self, tmp_path):
+        render_stubs(_answers(optional_deps=["detect-secrets"]), tmp_path)
+        content = (tmp_path / ".pre-commit-config.yaml").read_text()
+        assert "detect-aws-credentials" in content
+
+    def test_detect_aws_credentials_absent_without_detect_secrets(self, tmp_path):
+        render_stubs(_answers(optional_deps=["black"]), tmp_path)
+        content = (tmp_path / ".pre-commit-config.yaml").read_text()
+        assert "detect-aws-credentials" not in content
+
+    def test_multiple_tools_all_included(self, tmp_path):
+        render_stubs(_answers(optional_deps=["black", "ruff", "mypy", "bandit"]), tmp_path)
+        content = (tmp_path / ".pre-commit-config.yaml").read_text()
+        assert "psf/black" in content
+        assert "ruff-pre-commit" in content
+        assert "mirrors-mypy" in content
+        assert "PyCQA/bandit" in content
+
+    def test_only_single_tool_no_other_tool_sections(self, tmp_path):
+        render_stubs(_answers(optional_deps=["isort"]), tmp_path)
+        content = (tmp_path / ".pre-commit-config.yaml").read_text()
+        assert "psf/black" not in content
+        assert "ruff-pre-commit" not in content
+        assert "mirrors-mypy" not in content
+        assert "PyCQA/bandit" not in content
+        assert "Yelp/detect-secrets" not in content
+
+
+class TestPreCommitDocs:
+    def test_docs_generated_when_tools_selected(self, tmp_path):
+        render_stubs(_answers(optional_deps=["ruff"]), tmp_path)
+        assert (tmp_path / "docs" / "pre-commit.md").exists()
+
+    def test_docs_not_generated_when_no_tools(self, tmp_path):
+        render_stubs(_answers(optional_deps=[]), tmp_path)
+        assert not (tmp_path / "docs" / "pre-commit.md").exists()
+
+    def test_docs_contain_hygiene_section(self, tmp_path):
+        render_stubs(_answers(optional_deps=["black"]), tmp_path)
+        content = (tmp_path / "docs" / "pre-commit.md").read_text()
+        assert "trailing-whitespace" in content
+        assert "end-of-file-fixer" in content
+        assert "check-merge-conflict" in content
+
+    def test_docs_contain_selected_tool_section(self, tmp_path):
+        render_stubs(_answers(optional_deps=["mypy"]), tmp_path)
+        content = (tmp_path / "docs" / "pre-commit.md").read_text()
+        assert "mypy" in content
+        assert "Static type checker" in content
+
+    def test_docs_omit_unselected_tool_section(self, tmp_path):
+        render_stubs(_answers(optional_deps=["ruff"]), tmp_path)
+        content = (tmp_path / "docs" / "pre-commit.md").read_text()
+        assert "Static type checker" not in content
+        assert "bandit" not in content
+
+    def test_detect_secrets_setup_instructions_present(self, tmp_path):
+        render_stubs(_answers(optional_deps=["detect-secrets"]), tmp_path)
+        content = (tmp_path / "docs" / "pre-commit.md").read_text()
+        assert ".secrets.baseline" in content
+
+    def test_readme_has_precommit_section_when_tools_selected(self, tmp_path):
+        render_stubs(_answers(optional_deps=["black", "ruff"]), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "pre-commit" in content
+        assert "docs/pre-commit.md" in content
+
+    def test_readme_no_precommit_section_when_no_tools(self, tmp_path):
+        render_stubs(_answers(optional_deps=[]), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "docs/pre-commit.md" not in content
+
+    def test_readme_lists_selected_tools(self, tmp_path):
+        render_stubs(_answers(optional_deps=["mypy", "bandit"]), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "mypy" in content
+        assert "bandit" in content

@@ -258,3 +258,19 @@ See [`docs/copilot.md`](docs/copilot.md) for a full guide on what's included and
 {% endif -%}
 | `.github/hooks/hooks.json` | Copilot lifecycle hooks (auto-syntax check on save) |
 {% endif %}
+{% if optional_deps %}
+
+## Pre-commit hooks
+
+This project uses [pre-commit](https://pre-commit.com) to enforce code quality on every
+`git commit`. Selected tools: `{{ optional_deps | join("`, `") }}`.
+
+```bash
+pip install pre-commit
+pre-commit install        # wire hooks into git
+pre-commit run --all-files  # run everything without committing
+```
+
+See [`docs/pre-commit.md`](docs/pre-commit.md) for what each hook does, configuration
+tips, and troubleshooting.
+{% endif %}

@@ -60,6 +60,28 @@ class TestBuildDependencies:
         assert "ruff" in dev
         assert "black" in dev
 
+    def test_optional_deps_auto_adds_precommit(self):
+        _, dev = build_dependencies(_answers(optional_deps=["ruff"]))
+        assert "pre-commit" in dev
+
+    def test_no_optional_deps_no_precommit(self):
+        _, dev = build_dependencies(_answers(optional_deps=[]))
+        assert "pre-commit" not in dev
+
+    def test_pyupgrade_adds_precommit_but_not_pip_package(self):
+        _, dev = build_dependencies(_answers(optional_deps=["pyupgrade"]))
+        assert "pre-commit" in dev
+        assert "pyupgrade" not in dev
+
+    def test_detect_secrets_adds_package(self):
+        _, dev = build_dependencies(_answers(optional_deps=["detect-secrets"]))
+        assert "detect-secrets" in dev
+        assert "pre-commit" in dev
+
+    def test_mypy_adds_package(self):
+        _, dev = build_dependencies(_answers(optional_deps=["mypy"]))
+        assert "mypy" in dev
+
     def test_stdlib_drivers_add_no_packages(self):
         runtime, _ = build_dependencies(_answers(db_driver="sqlite"))
         # sqlite3 is stdlib — no extra package

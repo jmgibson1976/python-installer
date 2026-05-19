@@ -78,3 +78,11 @@ class TestPromptRegistry:
 
     def test_twelve_prompts_defined(self):
         assert len(PROMPTS) == 12
+
+    def test_optional_deps_choices(self):
+        p = get_prompt("optional_deps")
+        assert p is not None
+        assert p.prompt_type == "checkbox"
+        expected = {"black", "ruff", "flake8", "isort", "mypy", "pyupgrade", "bandit", "detect-secrets"}
+        assert set(p.choices) == expected
+        assert "pre-commit" not in p.choices
