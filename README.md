@@ -2,17 +2,18 @@
 
 A Laravel-inspired Python CLI tool that interactively scaffolds new Python projects. Answer a short
 wizard of prompts and get a fully structured project with `pyproject.toml`, source skeleton, tests,
-optional Docker configuration, and git initialisation — ready to code.
+optional Docker configuration, database layer, and git initialisation — ready to code.
 
 The wizard generates a fully wired project including:
 - `pyproject.toml` with all selected dependencies
-- `src/<pkg>/` source package with `__init__.py`, `__main__.py`, and an optional `config.py`
+- `src/<pkg>/` source package with `__init__.py`, optional `__main__.py` (CLI), `env.py`, `config.py`, and `logging.py`
 - `configs/settings.toml` — structured config auto-discovered at startup
 - `.env` + `.env.example` — pre-populated with every env var the project uses
-- `configs/` — drop `.toml` files here; they are merged automatically into `settings`
-- `tests/` skeleton
-- `README.md` and `.gitignore`
-- Docker: `docker-compose.yml` + `docker/runtimes/3.13/Dockerfile` (when docker selected)
+- `tests/` skeleton (pytest and/or unittest stubs based on selections)
+- `README.md`, `.gitignore`, and `docs/` reference pages
+- Docker: `docker-compose.yml` + `docker/runtimes/3.13/Dockerfile` (when Docker selected)
+- Database: `src/<pkg>/database.py`, migrations, seeders, and `scripts/` (when a DB driver is selected)
+- AI assistant: `.github/` Copilot workspace files + `docs/copilot.md` (when AI setup is enabled)
 
 ---
 
@@ -64,14 +65,53 @@ installer new ../my-app
 installer new /Users/me/Projects/my-app
 ```
 
-The wizard will ask about:
-- Project name & version
-- Git initialisation
-- Docker support
-- Database driver & abstraction layer
-- Testing frameworks
-- Logging, environment parsing, CLI support
-- Optional dev dependencies (ruff, black, pre-commit, detect-secrets)
+### Wizard prompts
+
+| Prompt | Default | Notes |
+|---|---|---|
+| Project name | — | Letters, numbers, dashes, underscores, periods |
+| Version | `0.0.1` | |
+| Initialize git? | Yes | |
+| Set up AI assistant (Copilot)? | Yes | Adds `.github/` workspace files |
+| Project runtime | `venv` | `venv`, `docker`, or `none` |
+| Database driver | `none` | sqlite3, MySQL, MariaDB, PostgreSQL, MSSQL, Oracle, MongoDB |
+| Database abstraction | `none` | SQLAlchemy ORM, `databases` (async) |
+| Testing frameworks | `pytest` | pytest, unittest, hypothesis, Robot Framework, Selenium, Playwright, mock, testcontainers |
+| Enable logging? | Yes | Adds `logging.py` + Rich console handler |
+| Environment parsing | `dotenv` | `python-dotenv`, `dynaconf`, or none |
+| CLI support | `none` | Typer, argparse, or none |
+| Optional dev deps | — | `pre-commit`, `ruff`, `black`, `detect-secrets` |
+
+---
+
+## What gets generated
+
+### Always
+
+```
+<project-name>/
+├── src/<pkg>/
+│   └── __init__.py
+├── README.md
+└── pyproject.toml
+```
+
+### Conditional
+
+| Selection | Generated files |
+|---|---|
+| `git=yes` | `.gitignore` |
+| `env_parsing=dotenv\|dynaconf` | `.env`, `.env.example`, `src/<pkg>/env.py`, `src/<pkg>/config.py`, `configs/settings.toml` |
+| `logging=yes` | `src/<pkg>/logging.py`, `logs/` directory |
+| `docker=docker` | `docker-compose.yml`, `docker/runtimes/3.13/Dockerfile` |
+| `cli_support=typer\|argparse` | `src/<pkg>/__main__.py`, `src/<pkg>/commands/hello.py`, `docs/cli.md` |
+| `testing_frameworks` (any) | `tests/__init__.py` |
+| `testing_frameworks` includes `pytest` | `tests/test_sample.py` |
+| `testing_frameworks` includes `unittest` | `tests/test_sample_unittest.py` |
+| `db_driver` (any SQL) | `src/<pkg>/database.py`, `docs/database.md`, `database/migrations/`, `database/seeders/`, `scripts/migrate.sh`, `scripts/rollback.sh`, `scripts/refresh.sh`, `scripts/seed.sh` |
+| `db_driver=nosql` | `src/<pkg>/database.py`, `docs/database.md`, `database/README.md` |
+| `ai_setup=yes` | `.github/copilot-instructions.md`, `.github/instructions/python.instructions.md`, conditional instruction files, `.github/skills/run-tests/SKILL.md`, `.github/agents/feature-planner.agent.md`, `.github/hooks/hooks.json`, `docs/copilot.md` |
+| `ai_setup=yes` + `git=yes` | `.github/hooks/pre-commit`, `.github/prompts/new-feature.prompt.md`, `.github/prompts/plan-feature.prompt.md` |
 
 ---
 
@@ -106,22 +146,37 @@ RUN apk add --no-cache unixodbc-dev   # pyodbc (MSSQL)
 
 ```
 installer/
-  __main__.py        ← entry point
-  commands/new.py    ← new command
-  prompts/           ← wizard definitions & runner
-  generator/         ← scaffold, toml builder, stub renderer
-  models/answers.py  ← collected wizard answers
-  stubs/             ← Jinja2 templates for generated projects
+  __main__.py              ← entry point; registers the Typer app
+  commands/
+    new.py                 ← `installer new` command
+  prompts/
+    definitions.py         ← PromptDef dataclass + PROMPTS registry
+    runner.py              ← runs wizard prompts, persists state to temp JSON
+  generator/
+    scaffold.py            ← creates directory tree, calls toml_builder + stubs
+    toml_builder.py        ← maps Answers → deps, renders pyproject.toml
+    stubs.py               ← renders Jinja2 templates into the new project
+  models/
+    answers.py             ← Answers dataclass (single source of truth)
+  stubs/                   ← Jinja2 (.j2) templates and static files
     README.md.j2
-    .gitignore
+    __init__.py.j2
+    .gitignore.j2
     .env.example.j2
+    env.py.j2
     config.py.j2
-    configs/
-      settings.toml.j2
-    docker/
-      docker-compose.yml.j2
-      runtimes/3.13/Dockerfile.j2
-tests/               ← pytest suite mirroring installer/
+    logging.py.j2
+    database.py.j2
+    configs/settings.toml.j2
+    cli/                   ← __main__.py, commands/, docs.md
+    docker/                ← Dockerfile, docker-compose.yml
+    database/              ← docs.md, migrations/, seeders/
+    scripts/               ← migrate.sh, rollback.sh, refresh.sh, seed.sh
+    docs/copilot.md.j2
+    github/                ← copilot-instructions.md, instructions/, skills/, agents/, hooks/, prompts/
+    tests/                 ← test_sample.py, test_sample_unittest.py
+
+tests/                     ← pytest suite mirroring installer/
 ```
 
 ---
@@ -129,3 +184,4 @@ tests/               ← pytest suite mirroring installer/
 ## License
 
 MIT
+
