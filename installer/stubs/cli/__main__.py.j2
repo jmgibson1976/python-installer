@@ -89,7 +89,7 @@ app.command("hello")(hello_command)
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 def main() -> None:
-    """Setuptools entry point — called by the installed ``{{ pkg_name }}`` script."""
+    """Setuptools entry-point — ``{{ pkg_name }}`` CLI."""
     app()
 
 
@@ -178,7 +178,7 @@ class App:
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 def main() -> None:
-    """Setuptools entry point — called by the installed ``{{ pkg_name }}`` script."""
+    """Setuptools entry-point — ``{{ pkg_name }}`` CLI."""
     App().run()
 
 

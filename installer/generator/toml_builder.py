@@ -174,7 +174,7 @@ where = ["src"]
         toml += """\
 
 [tool.black]
-line-length = 88
+line-length = 120
 target-version = ["py313"]
 """
 
@@ -183,14 +183,14 @@ target-version = ["py313"]
 
 [tool.isort]
 profile = "black"
-line_length = 88
+line_length = 120
 """
 
     if "mypy" in answers.optional_deps:
         toml += """\
 
 [tool.mypy]
-strict = true
+ignore_missing_imports = true
 python_version = "3.13"
 """
 

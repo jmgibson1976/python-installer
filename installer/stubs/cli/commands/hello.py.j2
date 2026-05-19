@@ -44,7 +44,7 @@ def hello_command(
     verbose = ctx.obj.get("verbose", False) if ctx.obj else False
 
     # ── Debug output ──────────────────────────────────────────────────────────
-    # Triggered by passing --debug before the subcommand: {{ pkg_name }} --debug hello Alice
+    # Trigger: {{ pkg_name }} --debug hello Alice
     if debug:
         opts = {
             "name":  name,
@@ -60,7 +60,7 @@ def hello_command(
         raise typer.BadParameter("name cannot be blank.", param_hint="'NAME'")
 
     # ── Verbose output ────────────────────────────────────────────────────────
-    # Triggered by --verbose before the subcommand: {{ pkg_name }} --verbose hello Alice
+    # Trigger: {{ pkg_name }} --verbose hello Alice
     if verbose:
         console.print(f"[dim]hello: greeting '{name}' × {count}[/dim]")
 

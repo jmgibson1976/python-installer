@@ -125,7 +125,7 @@ class TestRenderToml:
     def test_black_tool_section_when_selected(self):
         toml = render_toml(_answers(optional_deps=["black"]))
         assert "[tool.black]" in toml
-        assert "line-length = 88" in toml
+        assert "line-length = 120" in toml
         assert 'target-version = ["py313"]' in toml
 
     def test_black_tool_section_absent_when_not_selected(self):
@@ -136,7 +136,7 @@ class TestRenderToml:
         toml = render_toml(_answers(optional_deps=["isort"]))
         assert "[tool.isort]" in toml
         assert 'profile = "black"' in toml
-        assert "line_length = 88" in toml
+        assert "line_length = 120" in toml
 
     def test_isort_tool_section_absent_when_not_selected(self):
         toml = render_toml(_answers(optional_deps=[]))
@@ -145,7 +145,7 @@ class TestRenderToml:
     def test_mypy_tool_section_when_selected(self):
         toml = render_toml(_answers(optional_deps=["mypy"]))
         assert "[tool.mypy]" in toml
-        assert "strict = true" in toml
+        assert "ignore_missing_imports = true" in toml
         assert 'python_version = "3.13"' in toml
 
     def test_mypy_tool_section_absent_when_not_selected(self):

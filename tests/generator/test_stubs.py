@@ -1613,7 +1613,7 @@ class TestFlake8Stub:
     def test_flake8_config_contains_max_line_length(self, tmp_path):
         render_stubs(_answers(optional_deps=["flake8"]), tmp_path)
         content = (tmp_path / ".flake8").read_text()
-        assert "max-line-length = 88" in content
+        assert "max-line-length = 120" in content
 
     def test_flake8_config_not_created_when_not_selected(self, tmp_path):
         render_stubs(_answers(optional_deps=["black"]), tmp_path)

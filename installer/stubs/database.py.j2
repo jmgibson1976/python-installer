@@ -65,13 +65,14 @@ Example::
 from __future__ import annotations
 
 {% if db_abstraction != "none" %}
+from contextlib import contextmanager
+from typing import Generator
+
 {% if has_env_module %}
 from {{ pkg_name }}.env import get_env
 {% else %}
 import os
 {% endif %}
-from contextlib import contextmanager
-from typing import Generator
 
 from sqlalchemy import Integer, String, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
@@ -314,13 +315,14 @@ def delete_user(user_id: int) -> bool:
         return cursor.rowcount > 0
 
 {% elif db_driver == "mysql" or db_driver == "mariadb" %}
+from contextlib import contextmanager
+from typing import Generator
+
 {% if has_env_module %}
 from {{ pkg_name }}.env import get_env
 {% else %}
 import os
 {% endif %}
-from contextlib import contextmanager
-from typing import Generator
 
 import pymysql
 import pymysql.cursors
@@ -428,13 +430,14 @@ def delete_user(user_id: int) -> bool:
             return cur.rowcount > 0
 
 {% elif db_driver == "postgresql" %}
+from contextlib import contextmanager
+from typing import Generator
+
 {% if has_env_module %}
 from {{ pkg_name }}.env import get_env
 {% else %}
 import os
 {% endif %}
-from contextlib import contextmanager
-from typing import Generator
 
 import psycopg2
 import psycopg2.extras

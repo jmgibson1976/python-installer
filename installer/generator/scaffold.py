@@ -56,7 +56,7 @@ def create_project(answers: Answers) -> Path:
 
     # ── Secrets baseline (if detect-secrets selected) ────────────────────────
     if "detect-secrets" in answers.optional_deps:
-        _init_secrets_baseline(project_root)
+        _write_secrets_baseline(project_root)
 
     # ── Git init ──────────────────────────────────────────────────────────────
     if answers.git:
@@ -65,24 +65,22 @@ def create_project(answers: Answers) -> Path:
     return project_root
 
 
-def _init_secrets_baseline(project_root: Path) -> None:
-    """Run ``detect-secrets scan`` and write ``.secrets.baseline`` to *project_root*."""
-    try:
-        result = subprocess.run(
-            ["detect-secrets", "scan"],
-            capture_output=True,
-            text=True,
-            cwd=project_root,
-        )
-        if result.returncode == 0:
-            (project_root / ".secrets.baseline").write_text(result.stdout, encoding="utf-8")
-        else:
-            _log.warning(
-                "detect-secrets scan failed (exit %d); skipping .secrets.baseline",
-                result.returncode,
-            )
-    except FileNotFoundError:
-        _log.warning("detect-secrets not installed; skipping .secrets.baseline generation")
+def _write_secrets_baseline(project_root: Path) -> None:
+    """Write a minimal empty ``.secrets.baseline`` compatible with any detect-secrets version."""
+    import json
+    from datetime import datetime, timezone
+
+    baseline = {
+        "version": "1.4.0",
+        "plugins_used": [],
+        "filters_used": [],
+        "results": {},
+        "generated_at": datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    (project_root / ".secrets.baseline").write_text(
+        json.dumps(baseline, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _write(path: Path, content: str) -> None:
