@@ -1,0 +1,41 @@
+-- Seeder: 001_seed_users
+-- Inserts sample users for development and testing.
+-- Safe to re-run: uses INSERT OR IGNORE / INSERT IGNORE / ON CONFLICT DO NOTHING.
+
+{% if db_driver == "sqlite" %}
+INSERT OR IGNORE INTO users (name, email) VALUES
+    ('Alice Smith',   'alice@example.com'),
+    ('Bob Jones',     'bob@example.com'),
+    ('Carol Williams','carol@example.com');
+{% elif db_driver == "mysql" or db_driver == "mariadb" %}
+INSERT IGNORE INTO users (name, email) VALUES
+    ('Alice Smith',    'alice@example.com'),
+    ('Bob Jones',      'bob@example.com'),
+    ('Carol Williams', 'carol@example.com');
+{% elif db_driver == "postgresql" %}
+INSERT INTO users (name, email) VALUES
+    ('Alice Smith',    'alice@example.com'),
+    ('Bob Jones',      'bob@example.com'),
+    ('Carol Williams', 'carol@example.com')
+ON CONFLICT (email) DO NOTHING;
+{% elif db_driver == "mssql" %}
+IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'alice@example.com')
+    INSERT INTO users (name, email) VALUES ('Alice Smith', 'alice@example.com');
+IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'bob@example.com')
+    INSERT INTO users (name, email) VALUES ('Bob Jones', 'bob@example.com');
+IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'carol@example.com')
+    INSERT INTO users (name, email) VALUES ('Carol Williams', 'carol@example.com');
+{% elif db_driver == "oracle" %}
+INSERT INTO users (name, email)
+    SELECT 'Alice Smith', 'alice@example.com' FROM dual
+    WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'alice@example.com');
+INSERT INTO users (name, email)
+    SELECT 'Bob Jones', 'bob@example.com' FROM dual
+    WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'bob@example.com');
+INSERT INTO users (name, email)
+    SELECT 'Carol Williams', 'carol@example.com' FROM dual
+    WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'carol@example.com');
+COMMIT;
+{% else %}
+-- Add INSERT statements for driver: {{ db_driver }}
+{% endif %}

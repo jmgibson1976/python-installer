@@ -1,5 +1,6 @@
 """
 database — database connection and CRUD helpers for {{ project_name }}.
+{% set has_env_module = (env_parsing == "dotenv" or logging_enabled) %}
 {% if db_abstraction != "none" %}
 This module uses SQLAlchemy as the ORM layer over
 {% if db_driver == "sqlite" -%}
@@ -64,7 +65,11 @@ Example::
 from __future__ import annotations
 
 {% if db_abstraction != "none" %}
+{% if has_env_module %}
+from {{ pkg_name }}.env import get_env
+{% else %}
 import os
+{% endif %}
 from contextlib import contextmanager
 from typing import Generator
 
@@ -89,7 +94,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sess
 {% else %}
 #   See the SQLAlchemy docs for your driver's URL format.
 {% endif %}
-DATABASE_URL: str = os.environ.get(
+DATABASE_URL: str = {% if has_env_module %}get_env{% else %}os.environ.get{% endif %}(
     "DATABASE_URL",
 {% if db_driver == "sqlite" %}
     "sqlite:///./{{ pkg_name }}.db",
@@ -221,8 +226,13 @@ import sqlite3
 from contextlib import contextmanager
 from typing import Generator
 
+{% if has_env_module %}
+from {{ pkg_name }}.env import get_env
 
+DATABASE_PATH: str = get_env("DATABASE_PATH", "{{ pkg_name }}.db")
+{% else %}
 DATABASE_PATH: str = "{{ pkg_name }}.db"
+{% endif %}
 
 
 @contextmanager
@@ -304,7 +314,11 @@ def delete_user(user_id: int) -> bool:
         return cursor.rowcount > 0
 
 {% elif db_driver == "mysql" or db_driver == "mariadb" %}
+{% if has_env_module %}
+from {{ pkg_name }}.env import get_env
+{% else %}
 import os
+{% endif %}
 from contextlib import contextmanager
 from typing import Generator
 
@@ -313,6 +327,16 @@ import pymysql.cursors
 
 
 def _connection_params() -> dict:
+    {% if has_env_module %}
+    return {
+        "host":     get_env("DB_HOST", "127.0.0.1"),
+        "port":     int(get_env("DB_PORT", "3306")),
+        "user":     get_env("DB_USER", "root"),
+        "password": get_env("DB_PASSWORD", ""),
+        "database": get_env("DB_NAME", "{{ pkg_name }}"),
+        "cursorclass": pymysql.cursors.DictCursor,
+    }
+    {% else %}
     return {
         "host":     os.environ.get("DB_HOST", "127.0.0.1"),
         "port":     int(os.environ.get("DB_PORT", "3306")),
@@ -321,6 +345,7 @@ def _connection_params() -> dict:
         "database": os.environ.get("DB_NAME", "{{ pkg_name }}"),
         "cursorclass": pymysql.cursors.DictCursor,
     }
+    {% endif %}
 
 
 @contextmanager
@@ -403,7 +428,11 @@ def delete_user(user_id: int) -> bool:
             return cur.rowcount > 0
 
 {% elif db_driver == "postgresql" %}
+{% if has_env_module %}
+from {{ pkg_name }}.env import get_env
+{% else %}
 import os
+{% endif %}
 from contextlib import contextmanager
 from typing import Generator
 
@@ -412,6 +441,15 @@ import psycopg2.extras
 
 
 def _dsn() -> str:
+    {% if has_env_module %}
+    return (
+        f"host={get_env('DB_HOST', '127.0.0.1')} "
+        f"port={get_env('DB_PORT', '5432')} "
+        f"dbname={get_env('DB_NAME', '{{ pkg_name }}')} "
+        f"user={get_env('DB_USER', 'postgres')} "
+        f"password={get_env('DB_PASSWORD', '')}"
+    )
+    {% else %}
     return (
         f"host={os.environ.get('DB_HOST', '127.0.0.1')} "
         f"port={os.environ.get('DB_PORT', '5432')} "
@@ -419,6 +457,7 @@ def _dsn() -> str:
         f"user={os.environ.get('DB_USER', 'postgres')} "
         f"password={os.environ.get('DB_PASSWORD', '')}"
     )
+    {% endif %}
 
 
 @contextmanager
@@ -507,7 +546,11 @@ def delete_user(user_id: int) -> bool:
 {% else %}
 # Driver-specific connection setup for {{ db_driver }}.
 # Update the connection parameters below to match your environment.
+{% if has_env_module %}
+from {{ pkg_name }}.env import get_env
+{% else %}
 import os
+{% endif %}
 from contextlib import contextmanager
 from typing import Any, Generator
 

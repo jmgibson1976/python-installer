@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# migrate.sh — run all pending migrations in order.
+#
+# Usage:
+#   ./scripts/migrate.sh
+#
+# Reads connection settings from the environment.  Source your .env first:
+#   source .env && ./scripts/migrate.sh
+#
+# Each migration file in database/migrations/ is run once, in filename order.
+# Paired files: *.up.sql (forward) and *.down.sql (rollback — see rollback.sh).
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MIGRATIONS_DIR="$SCRIPT_DIR/../database/migrations"
+
+{% if db_driver == "postgresql" %}
+: "${DB_HOST:=127.0.0.1}"
+: "${DB_PORT:=5432}"
+: "${DB_USER:=postgres}"
+: "${DB_NAME:={{ pkg_name }}}"
+: "${DB_PASSWORD:=}"
+
+_run_sql() {
+    PGPASSWORD="$DB_PASSWORD" psql \
+        --host="$DB_HOST" \
+        --port="$DB_PORT" \
+        --username="$DB_USER" \
+        --dbname="$DB_NAME" \
+        --file="$1"
+}
+{% elif db_driver == "mysql" or db_driver == "mariadb" %}
+: "${DB_HOST:=127.0.0.1}"
+: "${DB_PORT:=3306}"
+: "${DB_USER:=root}"
+: "${DB_NAME:={{ pkg_name }}}"
+: "${DB_PASSWORD:=}"
+
+_run_sql() {
+    mysql \
+        --host="$DB_HOST" \
+        --port="$DB_PORT" \
+        --user="$DB_USER" \
+        --password="$DB_PASSWORD" \
+        "$DB_NAME" < "$1"
+}
+{% elif db_driver == "sqlite" %}
+: "${DB_PATH:={{ pkg_name }}.db}"
+
+_run_sql() {
+    sqlite3 "$DB_PATH" < "$1"
+}
+{% elif db_driver == "mssql" %}
+: "${DB_HOST:=127.0.0.1}"
+: "${DB_PORT:=1433}"
+: "${DB_USER:=sa}"
+: "${DB_NAME:={{ pkg_name }}}"
+: "${DB_PASSWORD:=}"
+
+_run_sql() {
+    sqlcmd \
+        -S "${DB_HOST},${DB_PORT}" \
+        -U "$DB_USER" \
+        -P "$DB_PASSWORD" \
+        -d "$DB_NAME" \
+        -i "$1"
+}
+{% elif db_driver == "oracle" %}
+: "${DB_HOST:=127.0.0.1}"
+: "${DB_PORT:=1521}"
+: "${DB_USER:=system}"
+: "${DB_NAME:={{ pkg_name }}}"
+: "${DB_PASSWORD:=}"
+
+_run_sql() {
+    sqlplus -S "${DB_USER}/${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}" "@$1"
+}
+{% else %}
+_run_sql() {
+    echo "ERROR: no run_sql implementation for driver '{{ db_driver }}'." >&2
+    exit 1
+}
+{% endif %}
+
+echo "Running migrations from: $MIGRATIONS_DIR"
+
+shopt -s nullglob
+up_files=( "$MIGRATIONS_DIR"/*.up.sql )
+
+if [[ -z "${up_files[*]}" ]]; then
+    echo "No migration files found."
+    exit 0
+fi
+
+for migration in "${up_files[@]}"; do
+    echo "  → $(basename "$migration")"
+    _run_sql "$migration"
+done
+
+echo "Migrations complete."

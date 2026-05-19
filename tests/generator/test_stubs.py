@@ -819,3 +819,245 @@ class TestDatabaseStub:
         content = (tmp_path / "src" / "my_app" / "database.py").read_text()
         assert "psycopg2" in content
         assert "create_engine" in content
+
+    def test_get_env_used_when_env_module_available(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite", db_abstraction="sqlalchemy", env_parsing="dotenv"), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "database.py").read_text()
+        assert "get_env" in content
+        assert "from my_app.env import get_env" in content
+        assert "os.environ" not in content
+
+    def test_os_environ_used_when_no_env_module(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite", db_abstraction="sqlalchemy", env_parsing="none", logging=False), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "database.py").read_text()
+        assert "os.environ" in content
+        assert "from my_app.env import get_env" not in content
+
+    def test_get_env_used_for_raw_mysql_when_env_available(self, tmp_path):
+        render_stubs(_answers(db_driver="mysql", db_abstraction="none", env_parsing="dotenv"), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "database.py").read_text()
+        assert "get_env" in content
+        assert "os.environ" not in content
+
+    def test_get_env_used_for_raw_postgresql_when_env_available(self, tmp_path):
+        render_stubs(_answers(db_driver="postgresql", db_abstraction="none", env_parsing="dotenv"), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "database.py").read_text()
+        assert "get_env" in content
+        assert "os.environ" not in content
+
+    def test_get_env_used_when_logging_enabled_no_dotenv(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite", db_abstraction="sqlalchemy", env_parsing="none", logging=True), tmp_path)
+        content = (tmp_path / "src" / "my_app" / "database.py").read_text()
+        assert "get_env" in content
+
+
+class TestMigrationStubs:
+    _SQL_DRIVERS = ["sqlite", "mysql", "mariadb", "postgresql", "mssql", "oracle"]
+
+    def test_migration_up_created_for_sql_drivers(self, tmp_path):
+        for driver in self._SQL_DRIVERS:
+            sub = tmp_path / driver
+            render_stubs(_answers(db_driver=driver), sub)
+            assert (sub / "database" / "migrations" / "0001_initial.up.sql").exists(), driver
+
+    def test_migration_down_created_for_sql_drivers(self, tmp_path):
+        for driver in self._SQL_DRIVERS:
+            sub = tmp_path / driver
+            render_stubs(_answers(db_driver=driver), sub)
+            assert (sub / "database" / "migrations" / "0001_initial.down.sql").exists(), driver
+
+    def test_seeder_created_for_sql_drivers(self, tmp_path):
+        for driver in self._SQL_DRIVERS:
+            sub = tmp_path / driver
+            render_stubs(_answers(db_driver=driver), sub)
+            assert (sub / "database" / "seeders" / "001_seed_users.sql").exists(), driver
+
+    def test_scripts_created_for_sql_drivers(self, tmp_path):
+        scripts = ["migrate.sh", "rollback.sh", "refresh.sh", "seed.sh"]
+        for driver in self._SQL_DRIVERS:
+            sub = tmp_path / driver
+            render_stubs(_answers(db_driver=driver), sub)
+            for script in scripts:
+                assert (sub / "scripts" / script).exists(), f"{driver}: {script}"
+
+    def test_scripts_are_executable(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        import stat
+        for script in ("migrate.sh", "rollback.sh", "refresh.sh", "seed.sh"):
+            path = tmp_path / "scripts" / script
+            assert path.stat().st_mode & stat.S_IXUSR, f"{script} not executable"
+
+    def test_nosql_gets_readme_not_migrations(self, tmp_path):
+        render_stubs(_answers(db_driver="nosql"), tmp_path)
+        assert (tmp_path / "database" / "README.md").exists()
+        assert not (tmp_path / "database" / "migrations").exists()
+        assert not (tmp_path / "scripts" / "migrate.sh").exists()
+
+    def test_no_db_gets_no_database_dir(self, tmp_path):
+        render_stubs(_answers(db_driver="none"), tmp_path)
+        assert not (tmp_path / "database").exists()
+        assert not (tmp_path / "scripts").exists()
+
+    def test_sqlite_up_uses_autoincrement(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        content = (tmp_path / "database" / "migrations" / "0001_initial.up.sql").read_text()
+        assert "AUTOINCREMENT" in content
+
+    def test_postgresql_up_uses_serial(self, tmp_path):
+        render_stubs(_answers(db_driver="postgresql"), tmp_path)
+        content = (tmp_path / "database" / "migrations" / "0001_initial.up.sql").read_text()
+        assert "SERIAL" in content
+
+    def test_mysql_up_uses_auto_increment(self, tmp_path):
+        render_stubs(_answers(db_driver="mysql"), tmp_path)
+        content = (tmp_path / "database" / "migrations" / "0001_initial.up.sql").read_text()
+        assert "AUTO_INCREMENT" in content
+
+    def test_mssql_up_uses_identity(self, tmp_path):
+        render_stubs(_answers(db_driver="mssql"), tmp_path)
+        content = (tmp_path / "database" / "migrations" / "0001_initial.up.sql").read_text()
+        assert "IDENTITY" in content
+
+    def test_down_drops_users_table(self, tmp_path):
+        render_stubs(_answers(db_driver="postgresql"), tmp_path)
+        content = (tmp_path / "database" / "migrations" / "0001_initial.down.sql").read_text()
+        assert "users" in content.lower()
+        assert "drop" in content.lower()
+
+    def test_seeder_inserts_sample_rows(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        content = (tmp_path / "database" / "seeders" / "001_seed_users.sql").read_text()
+        assert "INSERT" in content
+        assert "alice@example.com" in content
+
+    def test_postgresql_seeder_uses_on_conflict(self, tmp_path):
+        render_stubs(_answers(db_driver="postgresql"), tmp_path)
+        content = (tmp_path / "database" / "seeders" / "001_seed_users.sql").read_text()
+        assert "ON CONFLICT" in content
+
+    def test_migrate_script_uses_psql_for_postgresql(self, tmp_path):
+        render_stubs(_answers(db_driver="postgresql"), tmp_path)
+        content = (tmp_path / "scripts" / "migrate.sh").read_text()
+        assert "psql" in content
+
+    def test_migrate_script_uses_mysql_for_mysql(self, tmp_path):
+        render_stubs(_answers(db_driver="mysql"), tmp_path)
+        content = (tmp_path / "scripts" / "migrate.sh").read_text()
+        assert "mysql" in content
+
+    def test_migrate_script_uses_sqlite3_for_sqlite(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        content = (tmp_path / "scripts" / "migrate.sh").read_text()
+        assert "sqlite3" in content
+
+    def test_seed_script_accepts_name_argument(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        content = (tmp_path / "scripts" / "seed.sh").read_text()
+        # script should branch on $# or $1
+        assert "$#" in content or "$1" in content
+
+    def test_seed_script_normalises_sql_extension(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        content = (tmp_path / "scripts" / "seed.sh").read_text()
+        assert ".sql" in content
+
+    def test_nosql_readme_mentions_mongodb(self, tmp_path):
+        render_stubs(_answers(db_driver="nosql"), tmp_path)
+        content = (tmp_path / "database" / "README.md").read_text()
+        assert "MongoDB" in content or "pymongo" in content
+
+
+class TestDatabaseDocs:
+    def test_docs_database_md_created_for_sql_driver(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        assert (tmp_path / "docs" / "database.md").exists()
+
+    def test_docs_database_md_created_for_nosql(self, tmp_path):
+        render_stubs(_answers(db_driver="nosql"), tmp_path)
+        assert (tmp_path / "docs" / "database.md").exists()
+
+    def test_docs_database_md_not_created_when_no_driver(self, tmp_path):
+        render_stubs(_answers(db_driver="none"), tmp_path)
+        assert not (tmp_path / "docs" / "database.md").exists()
+
+    def test_nosql_docs_mentions_mongodb(self, tmp_path):
+        render_stubs(_answers(db_driver="nosql"), tmp_path)
+        content = (tmp_path / "docs" / "database.md").read_text()
+        assert "MongoDB" in content
+        assert "pymongo" in content
+
+    def test_nosql_docs_has_connection_section(self, tmp_path):
+        render_stubs(_answers(db_driver="nosql"), tmp_path)
+        content = (tmp_path / "docs" / "database.md").read_text()
+        assert "MONGO_URI" in content
+
+    def test_sqlite_docs_has_database_url(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        content = (tmp_path / "docs" / "database.md").read_text()
+        assert "DATABASE_URL" in content
+
+    def test_postgresql_docs_has_psycopg2_dsn(self, tmp_path):
+        render_stubs(_answers(db_driver="postgresql"), tmp_path)
+        content = (tmp_path / "docs" / "database.md").read_text()
+        assert "psycopg2" in content or "postgresql" in content.lower()
+
+    def test_sqlalchemy_docs_has_session_usage(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite", db_abstraction="sqlalchemy"), tmp_path)
+        content = (tmp_path / "docs" / "database.md").read_text()
+        assert "SessionFactory" in content
+
+    def test_sqlalchemy_docs_has_model_example(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite", db_abstraction="sqlalchemy"), tmp_path)
+        content = (tmp_path / "docs" / "database.md").read_text()
+        assert "mapped_column" in content or "Mapped" in content
+
+    def test_raw_driver_docs_has_context_manager_example(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite", db_abstraction="none"), tmp_path)
+        content = (tmp_path / "docs" / "database.md").read_text()
+        assert "with Database()" in content
+
+    def test_sql_docs_has_migrations_section(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        content = (tmp_path / "docs" / "database.md").read_text()
+        assert "## Migrations" in content
+        assert "migrate.sh" in content
+
+    def test_sql_docs_has_seeders_section(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        content = (tmp_path / "docs" / "database.md").read_text()
+        assert "## Seeders" in content
+        assert "seed.sh" in content
+
+    def test_sql_docs_warns_about_refresh(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        content = (tmp_path / "docs" / "database.md").read_text()
+        assert "destructive" in content.lower() or "Warning" in content
+
+    def test_sql_docs_has_scripts_table(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        content = (tmp_path / "docs" / "database.md").read_text()
+        for script in ("migrate.sh", "rollback.sh", "refresh.sh", "seed.sh"):
+            assert script in content
+
+    def test_readme_has_database_section_for_sql(self, tmp_path):
+        render_stubs(_answers(db_driver="sqlite"), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "## Database" in content
+        assert "docs/database.md" in content
+
+    def test_readme_has_database_section_for_nosql(self, tmp_path):
+        render_stubs(_answers(db_driver="nosql"), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "## Database" in content
+        assert "docs/database.md" in content
+
+    def test_readme_no_database_section_when_no_driver(self, tmp_path):
+        render_stubs(_answers(db_driver="none"), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "## Database" not in content
+
+    def test_readme_sql_includes_quick_commands(self, tmp_path):
+        render_stubs(_answers(db_driver="postgresql"), tmp_path)
+        content = (tmp_path / "README.md").read_text()
+        assert "migrate.sh" in content
+        assert "seed.sh" in content

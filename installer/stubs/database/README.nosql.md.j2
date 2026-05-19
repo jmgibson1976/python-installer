@@ -1,0 +1,48 @@
+# Database — {{ project_name }}
+
+This project uses **MongoDB** as its database driver.
+
+MongoDB stores data in **collections** (not SQL tables), so there are no SQL
+migration files in this project.  Schema shape is enforced at the application
+layer via your model definitions.
+
+## Suggested tools
+
+| Tool | Purpose |
+|------|---------|
+| `pymongo` | Low-level driver (already in your dependencies) |
+| [MongoEngine](https://mongoengine.org) | Document-Object Mapper (similar to an ORM) |
+| [Beanie](https://beanie-odm.dev) | Async ODM built on Motor + Pydantic |
+
+## Schema validation (optional)
+
+MongoDB supports server-side JSON Schema validation on collections.  Example:
+
+```python
+from pymongo import MongoClient
+
+client = MongoClient(MONGO_URI)
+db = client["{{ pkg_name }}"]
+
+db.create_collection(
+    "users",
+    validator={
+        "$jsonSchema": {
+            "bsonType": "object",
+            "required": ["name", "email"],
+            "properties": {
+                "name":  {"bsonType": "string"},
+                "email": {"bsonType": "string"},
+            },
+        }
+    },
+)
+```
+
+## Indexes
+
+Create indexes at startup (idempotent — safe to re-run):
+
+```python
+db["users"].create_index("email", unique=True)
+```

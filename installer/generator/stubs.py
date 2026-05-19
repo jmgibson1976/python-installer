@@ -62,6 +62,15 @@ def render_stubs(answers: Answers, project_root: Path) -> None:
       - tests/test_sample.py                  (when "pytest" in testing_frameworks)
       - tests/test_sample_unittest.py         (when "unittest" in testing_frameworks)
       - src/<pkg>/database.py                 (when db_driver != "none")
+      - docs/database.md                       (when db_driver != "none")
+      - database/README.md                     (when db_driver == "nosql")
+      - database/migrations/0001_initial.up.sql   (when db_driver is sql)
+      - database/migrations/0001_initial.down.sql (when db_driver is sql)
+      - database/seeders/001_seed_users.sql    (when db_driver is sql)
+      - scripts/migrate.sh                     (when db_driver is sql)
+      - scripts/rollback.sh                    (when db_driver is sql)
+      - scripts/refresh.sh                     (when db_driver is sql)
+      - scripts/seed.sh                        (when db_driver is sql)
     """
     env = _jinja_env(_STUBS_DIR)
     context = _stub_context(answers)
@@ -145,8 +154,53 @@ def render_stubs(answers: Answers, project_root: Path) -> None:
             project_root / "src" / pkg_name / "database.py",
             _render_template(env, "database.py.j2", context),
         )
+        _write(
+            project_root / "docs" / "database.md",
+            _render_template(env, "database/docs.md.j2", context),
+        )
+
+        if answers.db_driver == "nosql":
+            _write(
+                project_root / "database" / "README.md",
+                _render_template(env, "database/README.nosql.md.j2", context),
+            )
+        else:
+            _write(
+                project_root / "database" / "migrations" / "0001_initial.up.sql",
+                _render_template(env, "database/migrations/0001_initial.up.sql.j2", context),
+            )
+            _write(
+                project_root / "database" / "migrations" / "0001_initial.down.sql",
+                _render_template(env, "database/migrations/0001_initial.down.sql.j2", context),
+            )
+            _write(
+                project_root / "database" / "seeders" / "001_seed_users.sql",
+                _render_template(env, "database/seeders/001_seed_users.sql.j2", context),
+            )
+            _write_executable(
+                project_root / "scripts" / "migrate.sh",
+                _render_template(env, "scripts/migrate.sh.j2", context),
+            )
+            _write_executable(
+                project_root / "scripts" / "rollback.sh",
+                _render_template(env, "scripts/rollback.sh.j2", context),
+            )
+            _write_executable(
+                project_root / "scripts" / "refresh.sh",
+                _render_template(env, "scripts/refresh.sh.j2", context),
+            )
+            _write_executable(
+                project_root / "scripts" / "seed.sh",
+                _render_template(env, "scripts/seed.sh.j2", context),
+            )
 
 
 def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
+
+
+def _write_executable(path: Path, content: str) -> None:
+    """Write *content* to *path* and set the executable bit."""
+    _write(path, content)
+    path.chmod(path.stat().st_mode | 0o755)

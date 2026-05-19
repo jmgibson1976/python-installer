@@ -1,0 +1,51 @@
+-- Migration: 0001_initial
+-- Direction: UP (forward)
+-- Creates the initial users table.
+
+BEGIN;
+
+{% if db_driver == "postgresql" %}
+CREATE TABLE IF NOT EXISTS users (
+    id         SERIAL PRIMARY KEY,
+    name       VARCHAR(255) NOT NULL,
+    email      VARCHAR(255) NOT NULL UNIQUE,
+    created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+{% elif db_driver == "mysql" or db_driver == "mariadb" %}
+CREATE TABLE IF NOT EXISTS users (
+    id         INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name       VARCHAR(255) NOT NULL,
+    email      VARCHAR(255) NOT NULL UNIQUE,
+    created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+{% elif db_driver == "sqlite" %}
+CREATE TABLE IF NOT EXISTS users (
+    id         INTEGER      PRIMARY KEY AUTOINCREMENT,
+    name       TEXT         NOT NULL,
+    email      TEXT         NOT NULL UNIQUE,
+    created_at TEXT         NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT         NOT NULL DEFAULT (datetime('now'))
+);
+{% elif db_driver == "mssql" %}
+CREATE TABLE users (
+    id         INT           NOT NULL IDENTITY(1,1) PRIMARY KEY,
+    name       NVARCHAR(255) NOT NULL,
+    email      NVARCHAR(255) NOT NULL UNIQUE,
+    created_at DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
+    updated_at DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME()
+);
+{% elif db_driver == "oracle" %}
+CREATE TABLE users (
+    id         NUMBER        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name       VARCHAR2(255) NOT NULL,
+    email      VARCHAR2(255) NOT NULL UNIQUE,
+    created_at TIMESTAMP     DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at TIMESTAMP     DEFAULT SYSTIMESTAMP NOT NULL
+);
+{% else %}
+-- Add CREATE TABLE statement for driver: {{ db_driver }}
+{% endif %}
+
+COMMIT;

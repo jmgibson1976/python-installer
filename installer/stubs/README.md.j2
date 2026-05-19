@@ -112,6 +112,40 @@ Rich markup uses `[colour]text[/colour]` tags.  See the
 [Rich documentation](https://rich.readthedocs.io/en/stable/markup.html) for the
 full list of styles.
 {% endif %}
+{% if db_driver != "none" %}
+## Database
+{% if db_driver == "nosql" %}
+This project uses **MongoDB** (pymongo).  See [`docs/database.md`](docs/database.md) for connection setup and usage.
+{% elif db_abstraction == "sqlalchemy" %}
+This project uses **SQLAlchemy** ORM with
+{% if db_driver == "sqlite" %}SQLite{% elif db_driver == "mysql" %}MySQL{% elif db_driver == "mariadb" %}MariaDB{% elif db_driver == "postgresql" %}PostgreSQL{% elif db_driver == "mssql" %}MSSQL{% elif db_driver == "oracle" %}Oracle{% endif %}.
+See [`docs/database.md`](docs/database.md) for connection setup, ORM usage, and script reference.
+
+### Quick commands
+
+```bash
+./scripts/migrate.sh          # apply all pending migrations
+./scripts/rollback.sh         # reverse the last migration
+./scripts/refresh.sh          # rollback all, then re-migrate (destructive!)
+./scripts/seed.sh             # run all seeders
+./scripts/seed.sh 001_name    # run one seeder by name
+```
+{% else %}
+This project uses a raw
+{% if db_driver == "sqlite" %}sqlite3{% elif db_driver in ("mysql","mariadb") %}pymysql{% elif db_driver == "postgresql" %}psycopg2{% elif db_driver == "mssql" %}pyodbc{% elif db_driver == "oracle" %}python-oracledb{% endif %}
+driver.  See [`docs/database.md`](docs/database.md) for connection setup and script reference.
+
+### Quick commands
+
+```bash
+./scripts/migrate.sh          # apply all pending migrations
+./scripts/rollback.sh         # reverse the last migration
+./scripts/refresh.sh          # rollback all, then re-migrate (destructive!)
+./scripts/seed.sh             # run all seeders
+./scripts/seed.sh 001_name    # run one seeder by name
+```
+{% endif %}
+{% endif %}
 ## Tech Stack
 
 | Component | Selection | Type |
