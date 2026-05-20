@@ -22,9 +22,6 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest",
-    "black",
-    "pre-commit",
-    "detect-secrets",
 ]
 
 [tool.setuptools]
