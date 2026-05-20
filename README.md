@@ -80,7 +80,7 @@ installer new /Users/me/Projects/my-app
 | Enable logging? | Yes | Adds `logging.py` + Rich console handler |
 | Environment parsing | `dotenv` | `python-dotenv`, `dynaconf`, or none |
 | CLI support | `none` | Typer, argparse, or none |
-| Optional dev deps | — | `pre-commit`, `ruff`, `black`, `detect-secrets` |
+| Pre-commit hooks | — | `black`, `ruff`, `flake8`, `isort`, `mypy`, `pyupgrade`, `bandit`, `detect-secrets` (selects hooks; `pre-commit` is auto-added as a dev dep) |
 
 ---
 

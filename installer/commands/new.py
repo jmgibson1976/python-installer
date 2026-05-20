@@ -14,7 +14,7 @@ from rich.text import Text
 from installer.generator.scaffold import create_project
 from installer.models.answers import Answers
 from installer.prompts.definitions import _validate_project_name
-from installer.prompts.runner import run_prompts
+from installer.prompts.runner import WizardAborted, run_prompts
 
 console = Console()
 
@@ -81,6 +81,7 @@ def new(
 ) -> None:
     """Scaffold a new Python project interactively."""
     _print_banner()
+    console.print("  [dim]Press Ctrl+C at any time to exit.[/dim]\n")
 
     answers = Answers()
 
@@ -123,6 +124,10 @@ def new(
             project_root = create_project(answers)
 
         _print_success(answers, project_root)
+
+    except WizardAborted:
+        console.print("\n[yellow]Wizard cancelled.[/yellow]")
+        raise typer.Exit(0)
 
     finally:
         try:

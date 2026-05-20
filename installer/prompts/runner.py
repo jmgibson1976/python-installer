@@ -13,6 +13,13 @@ from installer.prompts.definitions import PROMPTS, PromptDef
 
 console = Console()
 
+# Sentinel returned by _ask() when a prompt is intentionally skipped (not user-aborted).
+_SKIPPED = object()
+
+
+class WizardAborted(Exception):
+    """Raised when the user exits the wizard early (Ctrl+C)."""
+
 # Choice display labels (shown in prompts) → internal keys
 _DB_DRIVER_LABELS: dict[str, str] = {
     "none": "None",
@@ -54,12 +61,7 @@ _CLI_LABELS: dict[str, str] = {
     "argparse": "ArgParser (stdlib)",
 }
 
-_OPT_DEP_LABELS: dict[str, str] = {
-    "pre-commit": "pre-commit",
-    "ruff": "ruff",
-    "black": "black",
-    "detect-secrets": "detect-secrets",
-}
+_OPT_DEP_LABELS: dict[str, str] = {}
 
 _DOCKER_LABELS: dict[str, str] = {
     "none": "None (no runtime environment)",
@@ -89,10 +91,17 @@ def _key_for(key: str, label: str) -> str:
     return reverse.get(label, label)
 
 
+_QUIT_SENTINEL = "__quit__"
+
+
 def _ask(prompt: PromptDef, skip_name: bool = False, answers: Optional["Answers"] = None) -> Any:
-    """Ask a single prompt and return the raw answer value (internal key)."""
+    """Ask a single prompt and return the raw answer value (internal key).
+
+    Returns ``_SKIPPED`` when the prompt is intentionally bypassed.
+    Raises ``WizardAborted`` when the user exits via Ctrl+C.
+    """
     if prompt.key == "project_name" and skip_name:
-        return None
+        return _SKIPPED
 
     # Skip db_abstraction when no db driver selected
     if prompt.key == "db_abstraction" and answers is not None and answers.db_driver == "none":
@@ -108,14 +117,20 @@ def _ask(prompt: PromptDef, skip_name: bool = False, answers: Optional["Answers"
             kwargs["instruction"] = f"({prompt.placeholder})"
         if prompt.validate:
             kwargs["validate"] = prompt.validate
-        return questionary.text(**kwargs).ask()
+        result = questionary.text(**kwargs).ask()
+        if result is None:
+            raise WizardAborted
+        return result
 
     if prompt.prompt_type == "confirm":
-        return questionary.confirm(
+        result = questionary.confirm(
             message=prompt.message,
             default=bool(prompt.default),
             auto_enter=False,
         ).ask()
+        if result is None:
+            raise WizardAborted
+        return result
 
     if prompt.prompt_type == "select":
         labels = [_label_for(prompt.key, c) for c in prompt.choices]
@@ -125,11 +140,13 @@ def _ask(prompt: PromptDef, skip_name: bool = False, answers: Optional["Answers"
             choices=labels,
             default=default_label,
         ).ask()
+        if answer_label is None:
+            raise WizardAborted
         return _key_for(prompt.key, answer_label)
 
     if prompt.prompt_type == "checkbox":
         default_keys = set(prompt.default or [])
-        choices = [
+        choices: list[Any] = [
             questionary.Choice(
                 title=_label_for(prompt.key, c),
                 value=c,
@@ -141,7 +158,9 @@ def _ask(prompt: PromptDef, skip_name: bool = False, answers: Optional["Answers"
             message=prompt.message,
             choices=choices,
         ).ask()
-        return answer_keys or []
+        if answer_keys is None:
+            raise WizardAborted
+        return answer_keys
 
     raise ValueError(f"Unknown prompt type: {prompt.prompt_type!r}")
 
@@ -171,8 +190,8 @@ def run_prompts(
 
     for prompt in PROMPTS:
         value = _ask(prompt, skip_name=skip_name, answers=answers)
-        if value is None:
-            continue  # skipped (name already provided)
+        if value is _SKIPPED:
+            continue  # intentionally skipped (e.g. name already provided via CLI arg)
 
         # mock (unittest.mock) is part of unittest — auto-add it when not already selected
         if prompt.key == "testing_frameworks" and isinstance(value, list):

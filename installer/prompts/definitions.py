@@ -136,7 +136,7 @@ PROMPTS: list[PromptDef] = [
     PromptDef(
         key="optional_deps",
         prompt_type="checkbox",
-        message="Which optional dev dependencies would you like?",
+        message="Which pre-commit hooks would you like to add?",
         default=[],
         choices=["black", "ruff", "flake8", "isort", "mypy", "pyupgrade", "bandit", "detect-secrets"],
     ),

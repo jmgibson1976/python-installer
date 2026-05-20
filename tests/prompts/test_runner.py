@@ -31,8 +31,9 @@ class TestRunPrompts:
 
     def _mock_ask(self, prompt, skip_name=False, answers=None):
         """Return sensible defaults for every prompt type."""
+        from installer.prompts.runner import _SKIPPED
         if prompt.key == "project_name" and skip_name:
-            return None
+            return _SKIPPED
         defaults = {
             "project_name": "test-app",
             "version": "0.1.0",
@@ -103,3 +104,58 @@ class TestDbAbstractionSkip:
             mock_q.select.return_value.ask.return_value = "SQLAlchemy (ORM)"
             _ask(prompt, answers=answers)
         mock_q.select.assert_called_once()
+
+
+class TestWizardAborted:
+    """WizardAborted is raised when questionary returns None (Ctrl+C / 'q')."""
+
+    def _get(self, key: str):
+        from installer.prompts.definitions import get_prompt
+        p = get_prompt(key)
+        assert p is not None
+        return p
+
+    def test_text_prompt_raises_on_none(self):
+        from installer.prompts.runner import WizardAborted, _ask
+        prompt = self._get("project_name")
+        with patch("installer.prompts.runner.questionary") as mock_q:
+            mock_q.text.return_value.ask.return_value = None
+            with pytest.raises(WizardAborted):
+                _ask(prompt)
+
+    def test_confirm_prompt_raises_on_none(self):
+        from installer.prompts.runner import WizardAborted, _ask
+        prompt = self._get("git")
+        with patch("installer.prompts.runner.questionary") as mock_q:
+            mock_q.confirm.return_value.ask.return_value = None
+            with pytest.raises(WizardAborted):
+                _ask(prompt)
+
+    def test_select_prompt_raises_on_none(self):
+        from installer.prompts.runner import WizardAborted, _ask
+        prompt = self._get("db_driver")
+        with patch("installer.prompts.runner.questionary") as mock_q:
+            mock_q.select.return_value.ask.return_value = None
+            with pytest.raises(WizardAborted):
+                _ask(prompt)
+
+    def test_checkbox_prompt_raises_on_none(self):
+        from installer.prompts.runner import WizardAborted, _ask
+        prompt = self._get("optional_deps")
+        with patch("installer.prompts.runner.questionary") as mock_q:
+            mock_q.checkbox.return_value.ask.return_value = None
+            with pytest.raises(WizardAborted):
+                _ask(prompt)
+
+    def test_run_prompts_propagates_wizard_aborted(self, tmp_path):
+        from installer.prompts.runner import WizardAborted, run_prompts
+        answers = Answers()
+        with patch("installer.prompts.runner._ask", side_effect=WizardAborted):
+            with pytest.raises(WizardAborted):
+                run_prompts(answers, temp_path=tmp_path / "session.json")
+
+    def test_name_skip_returns_skipped_sentinel(self):
+        from installer.prompts.runner import _SKIPPED, _ask
+        prompt = self._get("project_name")
+        result = _ask(prompt, skip_name=True)
+        assert result is _SKIPPED
