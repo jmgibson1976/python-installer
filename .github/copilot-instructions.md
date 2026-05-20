@@ -5,7 +5,7 @@ applyTo: "**"
 # Project Copilot Instructions
 
 ## Project Overview
-`python-installer` is a Laravel-inspired Python CLI tool that interactively scaffolds new Python
+`python-installer` is a Python CLI tool that interactively scaffolds new Python
 projects. It collects user preferences via a wizard, then generates a complete project tree with
 `pyproject.toml`, stubs, and optional Docker/git initialisation.
 

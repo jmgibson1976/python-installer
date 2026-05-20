@@ -138,7 +138,7 @@ def new(
 
 def _print_banner() -> None:
     title = Text("🐍 Python Installer", style="bold green")
-    subtitle = Text("PHP Laravel-style Python project scaffolding", style="dim")
+    subtitle = Text("Python project scaffolding", style="dim")
     panel = Panel(
         Text.assemble(title, "\n", subtitle),
         border_style="green",

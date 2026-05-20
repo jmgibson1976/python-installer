@@ -1,6 +1,6 @@
 # python-installer
 
-A Laravel-inspired Python CLI tool that interactively scaffolds new Python projects. Answer a short
+A Python CLI tool that interactively scaffolds new Python projects. Answer a short
 wizard of prompts and get a fully structured project with `pyproject.toml`, source skeleton, tests,
 optional Docker configuration, database layer, and git initialisation — ready to code.
 
