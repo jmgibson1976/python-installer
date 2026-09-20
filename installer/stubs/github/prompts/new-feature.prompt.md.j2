@@ -1,0 +1,40 @@
+---
+agent: ask
+description: Scaffold a new feature with all required files
+---
+
+# New Feature: ${input:featureName:Feature name (e.g. user-auth, billing, notifications)}
+
+Create a complete, working implementation of the **${input:featureName}** feature for the `{{ project_name }}` project.
+{% if cli_support != "none" %}
+If the feature exposes a CLI command, add it under `src/{{ pkg_name }}/commands/` and register it in `__main__.py`.
+{% endif %}
+{% if db_driver != "none" %}
+If the feature requires a new database table, create:
+- `database/migrations/<next_number>_${input:featureName}.up.sql`
+- `database/migrations/<next_number>_${input:featureName}.down.sql`
+
+Follow the existing migration file naming convention.
+{% endif %}
+{% if testing_frameworks %}
+Add tests in `tests/` covering:
+- Happy path
+- Key error paths and edge cases
+{% endif %}
+
+## Checklist
+
+- [ ] Implementation file(s) created under `src/{{ pkg_name }}/`
+{% if cli_support != "none" %}
+- [ ] CLI command added and registered (if applicable)
+{% endif %}
+{% if db_driver != "none" %}
+- [ ] Migration files created (if applicable)
+{% endif %}
+{% if testing_frameworks %}
+- [ ] Tests added
+{% endif %}
+{% if env_parsing != "none" %}
+- [ ] New env vars added to `.env.example` (if applicable)
+{% endif %}
+- [ ] README updated if the feature changes the public interface

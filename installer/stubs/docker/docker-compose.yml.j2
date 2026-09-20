@@ -1,0 +1,163 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/runtimes/3.13/Dockerfile
+    image: {{ pkg_name }}:latest
+    container_name: {{ project_name }}-app
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    volumes:
+      - .:/app
+{% if db_driver not in ("none", "sqlite") %}
+    depends_on:
+      db:
+        condition: service_healthy
+{% endif %}
+{% if db_driver == "postgresql" %}
+    environment:
+      DATABASE_URL: "${DATABASE_URL:-postgresql://${DB_USER:-{{ pkg_name }}}:${DB_PASSWORD:-secret}@db:5432/${DB_NAME:-{{ pkg_name }}}}"
+{% elif db_driver in ("mysql", "mariadb") %}
+    environment:
+      DATABASE_URL: "${DATABASE_URL:-mysql+pymysql://${DB_USER:-{{ pkg_name }}}:${DB_PASSWORD:-secret}@db:3306/${DB_NAME:-{{ pkg_name }}}}"
+{% elif db_driver == "mssql" %}
+    environment:
+      DATABASE_URL: "${DATABASE_URL:-mssql+pyodbc://${DB_USER:-sa}:${DB_PASSWORD:-Secret1234!}@db:1433/${DB_NAME:-{{ pkg_name }}}?driver=ODBC+Driver+18+for+SQL+Server}"
+{% elif db_driver == "oracle" %}
+    environment:
+      DATABASE_URL: "${DATABASE_URL:-oracle+oracledb://${DB_USER:-{{ pkg_name }}}:${DB_PASSWORD:-secret}@db:1521/?service_name=${DB_NAME:-{{ pkg_name }}}}"
+{% elif db_driver == "nosql" %}
+    environment:
+      MONGO_URI: "${MONGO_URI:-mongodb://${DB_USER:-}:${DB_PASSWORD:-}@db:27017/${DB_NAME:-{{ pkg_name }}}}"
+{% endif %}
+    networks:
+      - {{ pkg_name }}_network
+{% if db_driver == "postgresql" %}
+
+  db:
+    image: postgres:17-alpine
+    container_name: {{ project_name }}-db
+    ports:
+      - "${FORWARD_DB_PORT:-5432}:5432"
+    environment:
+      PGPASSWORD: "${DB_PASSWORD:-secret}"
+      POSTGRES_DB: "${DB_NAME:-{{ pkg_name }}}"
+      POSTGRES_USER: "${DB_USER:-{{ pkg_name }}}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD:-secret}"
+    volumes:
+      - {{ pkg_name }}_db_data:/var/lib/postgresql/data
+    networks:
+      - {{ pkg_name }}_network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-d", "${DB_NAME:-{{ pkg_name }}}", "-U", "${DB_USER:-{{ pkg_name }}}"]
+      retries: 3
+      timeout: 5s
+{% elif db_driver == "mysql" %}
+
+  db:
+    image: mysql:8.0
+    container_name: {{ project_name }}-db
+    ports:
+      - "${FORWARD_DB_PORT:-3306}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD:-rootsecret}"
+      MYSQL_DATABASE: "${DB_NAME:-{{ pkg_name }}}"
+      MYSQL_USER: "${DB_USER:-{{ pkg_name }}}"
+      MYSQL_PASSWORD: "${DB_PASSWORD:-secret}"
+      MYSQL_ALLOW_EMPTY_PASSWORD: "no"
+    volumes:
+      - {{ pkg_name }}_db_data:/var/lib/mysql
+    networks:
+      - {{ pkg_name }}_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-p${DB_PASSWORD:-secret}"]
+      retries: 3
+      timeout: 5s
+{% elif db_driver == "mariadb" %}
+
+  db:
+    image: mariadb:11
+    container_name: {{ project_name }}-db
+    ports:
+      - "${FORWARD_DB_PORT:-3306}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD:-rootsecret}"
+      MYSQL_DATABASE: "${DB_NAME:-{{ pkg_name }}}"
+      MYSQL_USER: "${DB_USER:-{{ pkg_name }}}"
+      MYSQL_PASSWORD: "${DB_PASSWORD:-secret}"
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    volumes:
+      - {{ pkg_name }}_db_data:/var/lib/mysql
+    networks:
+      - {{ pkg_name }}_network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      retries: 3
+      timeout: 5s
+{% elif db_driver == "mssql" %}
+
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: {{ project_name }}-db
+    ports:
+      - "${FORWARD_DB_PORT:-1433}:1433"
+    environment:
+      SA_PASSWORD: "${DB_PASSWORD:-Secret1234!}"
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+    volumes:
+      - {{ pkg_name }}_db_data:/var/opt/mssql
+    networks:
+      - {{ pkg_name }}_network
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "${DB_PASSWORD:-Secret1234!}", "-Q", "SELECT 1", "-No"]
+      retries: 5
+      timeout: 10s
+{% elif db_driver == "oracle" %}
+
+  db:
+    image: gvenzl/oracle-free:latest
+    container_name: {{ project_name }}-db
+    ports:
+      - "${FORWARD_DB_PORT:-1521}:1521"
+    environment:
+      ORACLE_PASSWORD: "${DB_PASSWORD:-secret}"
+      APP_USER: "${DB_USER:-{{ pkg_name }}}"
+      APP_USER_PASSWORD: "${DB_PASSWORD:-secret}"
+    volumes:
+      - {{ pkg_name }}_db_data:/opt/oracle/oradata
+    networks:
+      - {{ pkg_name }}_network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      retries: 10
+      timeout: 10s
+{% elif db_driver == "nosql" %}
+
+  db:
+    image: mongo:7
+    container_name: {{ project_name }}-db
+    ports:
+      - "${FORWARD_DB_PORT:-27017}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: "${DB_USER:-}"
+      MONGO_INITDB_ROOT_PASSWORD: "${DB_PASSWORD:-}"
+      MONGO_INITDB_DATABASE: "${DB_NAME:-{{ pkg_name }}}"
+    volumes:
+      - {{ pkg_name }}_db_data:/data/db
+    networks:
+      - {{ pkg_name }}_network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      retries: 3
+      timeout: 5s
+{% endif %}
+
+networks:
+  {{ pkg_name }}_network:
+    driver: bridge
+{% if db_driver not in ("none", "sqlite") %}
+
+volumes:
+  {{ pkg_name }}_db_data:
+{% endif %}

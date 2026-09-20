@@ -1,0 +1,187 @@
+"""
+{{ project_name }} — command-line entry point.
+
+Run with:
+    python -m {{ pkg_name }}          # from source
+    {{ pkg_name }}                    # after pip install
+
+Add new commands in {{ pkg_name }}/commands/ and register them below.
+"""
+from __future__ import annotations
+{% if cli_support == "typer" %}
+import importlib.metadata
+import logging
+from typing import Annotated
+
+import typer
+from rich.console import Console
+from rich.panel import Panel
+{% if logging_enabled %}
+from {{ pkg_name }}.logging import get_logger
+{% endif %}
+from {{ pkg_name }}.commands.hello import hello_command
+
+# ── App & console ─────────────────────────────────────────────────────────────
+app = typer.Typer(
+    name="{{ pkg_name }}",
+    help="{{ project_name }} command-line interface.",
+    add_completion=False,
+    no_args_is_help=True,
+)
+console = Console()
+{% if logging_enabled %}
+logger = get_logger(__name__)
+{% endif %}
+
+
+# ── Global callbacks ──────────────────────────────────────────────────────────
+def _version_callback(value: bool) -> None:
+    """Print the installed package version and exit."""
+    if value:
+        try:
+            typer.echo(importlib.metadata.version("{{ project_name }}"))
+        except importlib.metadata.PackageNotFoundError:
+            typer.echo("unknown")
+        raise typer.Exit()
+
+
+@app.callback()
+def _main_callback(
+    ctx: typer.Context,
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            callback=_version_callback,
+            is_eager=True,
+            help="Show the installed version and exit.",
+        ),
+    ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="Enable verbose (DEBUG) log output."),
+    ] = False,
+    debug: Annotated[
+        bool,
+        typer.Option(
+            "--debug", "-d",
+            help="Dump all parsed CLI arguments before executing any command.",
+        ),
+    ] = False,
+) -> None:
+    # Store flags in the Typer context so every command can read them.
+    # Commands access these via:  debug = ctx.obj.get("debug", False)
+    ctx.ensure_object(dict)
+    ctx.obj["verbose"] = verbose
+    ctx.obj["debug"] = debug
+
+    if verbose:
+        # Raise the root log level so DEBUG messages become visible everywhere.
+        logging.getLogger().setLevel(logging.DEBUG)
+        console.print("[dim]Verbose mode enabled.[/dim]")
+
+
+# ── Command registration ───────────────────────────────────────────────────────
+# Register each command here so __main__.py stays thin.
+# Pattern: app.command("<name>")(<function>)
+app.command("hello")(hello_command)
+
+
+# ── Entry point ───────────────────────────────────────────────────────────────
+def main() -> None:
+    """Setuptools entry-point — ``{{ pkg_name }}`` CLI."""
+    app()
+
+
+if __name__ == "__main__":
+    main()
+{% elif cli_support == "argparse" %}
+import argparse
+import logging
+import sys
+{% if logging_enabled %}
+from {{ pkg_name }}.logging import get_logger
+{% endif %}
+{% if env_parsing != "none" %}
+from {{ pkg_name }}.env import get_env
+{% endif %}
+from {{ pkg_name }}.commands.hello import register as register_hello, hello_command
+
+
+class App:
+    """Main application class — builds the argument parser and dispatches commands."""
+
+    def __init__(self) -> None:
+        {% if logging_enabled %}
+        self._logger = get_logger(__name__)
+        {% else %}
+        pass
+        {% endif %}
+
+    def run(self) -> None:
+        # ── Parser setup ──────────────────────────────────────────────────────
+        parser = argparse.ArgumentParser(
+            prog="{{ pkg_name }}",
+            description="{{ project_name }} command-line interface.",
+        )
+
+        # Global flags available on every subcommand.
+        parser.add_argument(
+            "--debug", "-d",
+            action="store_true",
+            help="Dump all parsed arguments before executing any command.",
+        )
+        parser.add_argument(
+            "--verbose", "-v",
+            action="store_true",
+            help="Enable verbose (DEBUG) log output.",
+        )
+
+        # ── Subcommands ───────────────────────────────────────────────────────
+        subparsers = parser.add_subparsers(dest="command")
+        register_hello(subparsers)
+        # Add more commands: register_<name>(subparsers)
+
+        # ── Parse ─────────────────────────────────────────────────────────────
+        args = parser.parse_args()
+
+        # ── Verbose ───────────────────────────────────────────────────────────
+        # --verbose raises the root log level so DEBUG messages are visible.
+        # Commands receive args.verbose and can emit extra output themselves.
+        if args.verbose:
+            logging.getLogger().setLevel(logging.DEBUG)
+            print("[verbose] Debug logging enabled.", file=sys.stderr)
+
+        # ── Debug output ──────────────────────────────────────────────────────
+        # Debug mode is triggered by --debug flag OR APP_DEBUG=true in .env.
+        # args is passed to every command so commands can also check args.debug.
+        {% if env_parsing != "none" %}
+        _app_debug = get_env("APP_DEBUG", "false").lower() == "true"
+        {% else %}
+        _app_debug = False
+        {% endif %}
+        if args.debug or _app_debug:
+            print("\n[DEBUG] Parsed arguments:")
+            for key, value in vars(args).items():
+                print(f"  {key}: {value!r}")
+            print()
+
+        # ── Dispatch ──────────────────────────────────────────────────────────
+        if args.command is None:
+            parser.print_help()
+            sys.exit(0)
+
+        if args.command == "hello":
+            hello_command(args)
+        # Add more dispatches: elif args.command == "<name>": <name>_command(args)
+
+
+# ── Entry point ───────────────────────────────────────────────────────────────
+def main() -> None:
+    """Setuptools entry-point — ``{{ pkg_name }}`` CLI."""
+    App().run()
+
+
+if __name__ == "__main__":
+    main()
+{% endif %}

@@ -1,0 +1,390 @@
+# {{ project_name }} — Database Reference
+{% if db_driver == "nosql" %}
+This project uses **MongoDB** (pymongo) as its database driver.
+
+MongoDB stores data in **collections** (not SQL tables), so there are no SQL
+migration or seeder files in this project.  Schema shape is enforced at the
+application layer.
+
+---
+
+## Connection
+
+Set your MongoDB connection URI in `.env`:
+
+```dotenv
+MONGO_URI=mongodb://localhost:27017/{{ pkg_name }}
+```
+
+Then load it in your code:
+
+```python
+import os
+from pymongo import MongoClient
+
+client = MongoClient(os.environ["MONGO_URI"])
+db = client["{{ pkg_name }}"]
+```
+
+---
+
+## Using `database.py`
+
+`src/{{ pkg_name }}/database.py` contains a `Database` class with basic CRUD
+helpers wired to the `users` collection.  Import and use it directly:
+
+```python
+from {{ pkg_name }}.database import Database
+
+db = Database()
+
+# Create
+user_id = db.create_user({"name": "Alice", "email": "alice@example.com"})
+
+# Read
+user = db.get_user(user_id)
+all_users = db.list_users()
+
+# Update
+db.update_user(user_id, {"name": "Alice Smith"})
+
+# Delete
+db.delete_user(user_id)
+```
+
+---
+
+## Schema validation (optional)
+
+MongoDB supports server-side JSON Schema validation on collections:
+
+```python
+db.client["{{ pkg_name }}"].create_collection(
+    "users",
+    validator={
+        "$jsonSchema": {
+            "bsonType": "object",
+            "required": ["name", "email"],
+            "properties": {
+                "name":  {"bsonType": "string"},
+                "email": {"bsonType": "string"},
+            },
+        }
+    },
+)
+```
+
+---
+
+## Indexes
+
+Create indexes at startup (idempotent — safe to re-run):
+
+```python
+db.client["{{ pkg_name }}"]["users"].create_index("email", unique=True)
+```
+
+---
+
+## Suggested libraries
+
+| Library | Purpose |
+|---------|---------|
+| `pymongo` | Low-level driver (already in your dependencies) |
+| [Motor](https://motor.readthedocs.io) | Async pymongo wrapper for asyncio |
+| [MongoEngine](https://mongoengine.org) | Document-Object Mapper (similar to an ORM) |
+| [Beanie](https://beanie-odm.dev) | Async ODM built on Motor + Pydantic |
+{% else %}
+{% if db_abstraction == "sqlalchemy" %}
+This project uses **SQLAlchemy** (ORM) on top of
+{% if db_driver == "sqlite" %}**SQLite** (stdlib — no server required){% elif db_driver == "mysql" %}**MySQL** (pymysql){% elif db_driver == "mariadb" %}**MariaDB** (pymysql){% elif db_driver == "postgresql" %}**PostgreSQL** (psycopg2-binary){% elif db_driver == "mssql" %}**Microsoft SQL Server** (pyodbc){% elif db_driver == "oracle" %}**Oracle** (python-oracledb){% endif %}.
+{% else %}
+This project uses a **raw
+{% if db_driver == "sqlite" %}sqlite3 (stdlib){% elif db_driver == "mysql" %}pymysql (MySQL){% elif db_driver == "mariadb" %}pymysql (MariaDB){% elif db_driver == "postgresql" %}psycopg2-binary (PostgreSQL){% elif db_driver == "mssql" %}pyodbc (MSSQL){% elif db_driver == "oracle" %}python-oracledb (Oracle){% endif %}
+** driver with no ORM layer.
+{% endif %}
+
+---
+
+## Connection
+
+{% if db_driver == "sqlite" %}
+SQLite uses a local file — no server needed.  Set the path in `.env`:
+
+```dotenv
+DATABASE_URL=sqlite:///./{{ pkg_name }}.db
+```
+
+The database file is created automatically on first connection.
+{% elif db_driver == "mysql" or db_driver == "mariadb" %}
+Set your connection details in `.env`:
+
+```dotenv
+DATABASE_URL={{ "mysql+pymysql" if db_driver == "mysql" else "mysql+pymysql" }}://user:password@localhost:3306/{{ pkg_name }}
+```
+
+> **Tip:** Create the database first: `CREATE DATABASE {{ pkg_name }};`
+{% elif db_driver == "postgresql" %}
+Set your connection details in `.env`:
+
+```dotenv
+DATABASE_URL=postgresql+psycopg2://user:password@localhost:5432/{{ pkg_name }}
+```
+
+> **Tip:** Create the database first: `createdb {{ pkg_name }}`
+{% elif db_driver == "mssql" %}
+Set your connection details in `.env`:
+
+```dotenv
+DATABASE_URL=mssql+pyodbc://user:password@localhost/{{ pkg_name }}?driver=ODBC+Driver+18+for+SQL+Server
+```
+
+> **Tip:** Ensure the ODBC Driver 18 for SQL Server is installed on your system.
+{% elif db_driver == "oracle" %}
+Set your connection details in `.env`:
+
+```dotenv
+DATABASE_URL=oracle+oracledb://user:password@localhost:1521/?service_name={{ pkg_name }}
+```
+{% endif %}
+{% if db_abstraction == "sqlalchemy" %}
+
+---
+
+## Using `database.py` (SQLAlchemy ORM)
+
+`src/{{ pkg_name }}/database.py` exposes an `engine`, a `SessionFactory`, and
+a `Database` helper class with ready-made CRUD operations on the `users` table.
+
+### Quick start
+
+```python
+from {{ pkg_name }}.database import Database, init_db
+
+# Create tables (run once at startup)
+init_db()
+
+db = Database()
+
+# Create
+user = db.create_user(name="Alice", email="alice@example.com")
+print(user.id, user.name)
+
+# Read
+user  = db.get_user(1)
+users = db.list_users()
+
+# Update
+updated = db.update_user(1, name="Alice Smith")
+
+# Delete
+db.delete_user(1)
+```
+
+### Using sessions directly
+
+```python
+from {{ pkg_name }}.database import SessionFactory
+
+with SessionFactory() as session:
+    # SQLAlchemy 2.x style — use session.execute() with select()
+    from sqlalchemy import select
+    from {{ pkg_name }}.database import User
+
+    stmt = select(User).where(User.email == "alice@example.com")
+    user = session.scalars(stmt).first()
+    session.commit()
+```
+
+### Adding a model
+
+1. Define your model in `src/{{ pkg_name }}/database.py` (or a separate `models.py`):
+
+```python
+from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column
+from {{ pkg_name }}.database import Base
+
+class Post(Base):
+    __tablename__ = "posts"
+
+    id:      Mapped[int] = mapped_column(primary_key=True, index=True)
+    title:   Mapped[str] = mapped_column(String(255), nullable=False)
+    content: Mapped[str] = mapped_column(String, nullable=False)
+```
+
+2. Add a migration in `database/migrations/` (see [Migrations](#migrations) below).
+
+### Connection string
+
+{% if env_parsing == "dotenv" or logging_enabled %}
+`database.py` reads `DATABASE_URL` through `get_env()` from `env.py` — the
+project-standard way to read environment variables:
+
+```python
+from {{ pkg_name }}.env import get_env
+
+DATABASE_URL: str = get_env("DATABASE_URL", "sqlite:///./{{ pkg_name }}.db")
+```
+
+This is already wired up in `database.py`.  To read any env var the same way
+elsewhere in the project:
+
+```python
+from {{ pkg_name }}.env import get_env
+
+db_host = get_env("DB_HOST", "127.0.0.1")
+```
+
+`get_env()` reads `.env` once and caches the result.  Call `reload_env()` to
+force a re-read (useful in tests).
+
+You can also fall back to `os.environ` directly, though `get_env()` is preferred:
+
+{% else %}
+`database.py` reads `DATABASE_URL` directly from the environment:
+
+{% endif %}
+```python
+import os
+
+engine = create_engine(os.environ.get("DATABASE_URL", ""), echo=False)
+```
+
+Set `echo=True` during development to log every SQL statement to stdout.
+{% else %}
+
+---
+
+## Using `database.py` (raw driver)
+
+`src/{{ pkg_name }}/database.py` exposes a `Database` class that opens and
+manages a connection directly with the
+{% if db_driver == "sqlite" %}sqlite3{% elif db_driver in ("mysql","mariadb") %}pymysql{% elif db_driver == "postgresql" %}psycopg2{% elif db_driver == "mssql" %}pyodbc{% elif db_driver == "oracle" %}python-oracledb{% endif %}
+driver.
+
+```python
+from {{ pkg_name }}.database import Database
+
+db = Database()
+
+# Create
+db.create_user(name="Alice", email="alice@example.com")
+
+# Read
+user  = db.get_user(1)
+users = db.list_users()
+
+# Update
+db.update_user(1, name="Alice Smith")
+
+# Delete
+db.delete_user(1)
+
+db.close()
+```
+
+Use it as a context manager to ensure the connection is always closed:
+
+```python
+with Database() as db:
+    users = db.list_users()
+```
+
+### Executing raw SQL
+
+```python
+with Database() as db:
+    {% if db_driver == "sqlite" %}db.conn.execute("SELECT sqlite_version()"){% elif db_driver in ("mysql","mariadb") %}db.cursor.execute("SELECT VERSION()"){% elif db_driver == "postgresql" %}db.cursor.execute("SELECT version()"){% elif db_driver == "mssql" %}db.cursor.execute("SELECT @@VERSION"){% elif db_driver == "oracle" %}db.cursor.execute("SELECT * FROM v$version"){% endif %}
+
+```
+{% endif %}
+
+---
+
+## Migrations
+
+Migration files live in `database/migrations/` as paired SQL files:
+
+| File | Purpose |
+|------|---------|
+| `0001_initial.up.sql` | Apply the migration (CREATE TABLE, etc.) |
+| `0001_initial.down.sql` | Reverse it (DROP TABLE, etc.) |
+
+Name new migrations with a zero-padded prefix so they run in order:
+`0002_add_posts.up.sql` / `0002_add_posts.down.sql`.
+
+### Running scripts
+
+Make sure scripts are executable:
+
+```bash
+chmod +x scripts/*.sh
+```
+
+| Command | Effect |
+|---------|--------|
+| `./scripts/migrate.sh` | Run all `*.up.sql` files in order |
+| `./scripts/rollback.sh` | Reverse the last migration (`*.down.sql`) |
+| `./scripts/refresh.sh` | Roll back **all** then re-apply **all** (destructive!) |
+| `./scripts/seed.sh` | Run all seeders |
+| `./scripts/seed.sh 001_seed_users` | Run one specific seeder |
+
+The scripts read `DATABASE_URL` (or individual `DB_*` vars) from your `.env`
+file automatically.
+
+> **Warning:** `refresh.sh` drops and recreates every table.  Never run it
+> against production.
+
+---
+
+## Seeders
+
+Seeder files live in `database/seeders/` and contain `INSERT` statements that
+are safe to re-run (idempotent).
+
+```
+database/seeders/
+└── 001_seed_users.sql   ← sample rows for the users table
+```
+
+Add new seeders as `NNN_description.sql`.  They run in numeric order unless
+you pass a specific name:
+
+```bash
+./scripts/seed.sh                  # run all seeders
+./scripts/seed.sh 001_seed_users   # run only this one
+```
+
+---
+
+## Environment variables
+
+| Variable | Example | Description |
+|----------|---------|-------------|
+{% if db_driver == "sqlite" %}| `DATABASE_URL` | `sqlite:///./{{ pkg_name }}.db` | Path to the SQLite database file |
+{% elif db_driver in ("mysql","mariadb") %}| `DATABASE_URL` | `mysql+pymysql://user:pass@localhost/{{ pkg_name }}` | Full DSN |
+| `DB_HOST` | `localhost` | Database host (used by scripts) |
+| `DB_PORT` | `3306` | Database port |
+| `DB_NAME` | `{{ pkg_name }}` | Database name |
+| `DB_USER` | `root` | Database user |
+| `DB_PASSWORD` | `secret` | Database password |
+{% elif db_driver == "postgresql" %}| `DATABASE_URL` | `postgresql+psycopg2://user:pass@localhost/{{ pkg_name }}` | Full DSN |
+| `DB_HOST` | `localhost` | Database host (used by scripts) |
+| `DB_PORT` | `5432` | Database port |
+| `DB_NAME` | `{{ pkg_name }}` | Database name |
+| `DB_USER` | `postgres` | Database user |
+| `DB_PASSWORD` | `secret` | Database password |
+{% elif db_driver == "mssql" %}| `DATABASE_URL` | `mssql+pyodbc://user:pass@localhost/{{ pkg_name }}?driver=...` | Full DSN |
+| `DB_SERVER` | `localhost` | SQL Server host |
+| `DB_NAME` | `{{ pkg_name }}` | Database name |
+| `DB_USER` | `sa` | Database user |
+| `DB_PASSWORD` | `secret` | Database password |
+{% elif db_driver == "oracle" %}| `DATABASE_URL` | `oracle+oracledb://user:pass@localhost:1521/?service_name={{ pkg_name }}` | Full DSN |
+| `DB_HOST` | `localhost` | Oracle host |
+| `DB_PORT` | `1521` | Oracle listener port |
+| `DB_SERVICE` | `{{ pkg_name }}` | Service name |
+| `DB_USER` | `system` | Database user |
+| `DB_PASSWORD` | `secret` | Database password |
+{% endif %}
+{% endif %}

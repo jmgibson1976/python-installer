@@ -1,0 +1,137 @@
+---
+applyTo: "**"
+---
+
+# Project Copilot Instructions
+
+## Project Overview
+`{{ project_name }}` is a Python application.
+{% if cli_support != "none" %}
+It exposes a CLI built with {{ "Typer" if cli_support == "typer" else "argparse" }}.
+{% endif %}
+{% if db_driver != "none" %}
+It uses {{ db_driver }} for data persistence{% if db_abstraction != "none" %} via {{ db_abstraction }}{% endif %}.
+{% endif %}
+{% if docker == "docker" %}
+The project is containerised with Docker and Docker Compose.
+{% endif %}
+
+---
+
+## Project Structure
+
+```
+src/{{ pkg_name }}/
+  __init__.py              ← Package entry: version, path constants{% if logging_enabled %}, logging bootstrap{% endif %}{% if env_parsing != "none" %}, settings re-export{% endif %}
+{% if cli_support != "none" %}
+  __main__.py              ← CLI entry point
+  commands/
+    __init__.py
+    hello.py               ← Example command — replace or extend
+{% endif %}
+{% if db_driver != "none" %}
+  database.py              ← Database class with CRUD helpers
+{% endif %}
+{% if env_parsing != "none" %}
+  config.py                ← Settings wrapper{% if env_parsing == "dotenv" %} (python-dotenv){% elif env_parsing == "dynaconf" %} (dynaconf){% endif %}
+{% endif %}
+{% if logging_enabled or env_parsing == "dotenv" %}
+  env.py                   ← Cached .env reader (get_env / reload_env)
+{% endif %}
+{% if logging_enabled %}
+  logging.py               ← Rotating file + console logger
+{% endif %}
+{% if env_parsing != "none" %}
+configs/
+  settings.toml            ← Application settings
+{% endif %}
+{% if db_driver != "none" and db_driver != "nosql" %}
+database/
+  migrations/              ← SQL migration files (*.up.sql / *.down.sql)
+  seeders/                 ← SQL seed files
+scripts/
+  migrate.sh               ← Run all pending migrations
+  rollback.sh              ← Roll back the last migration
+  refresh.sh               ← Roll back all then re-apply all migrations
+  seed.sh                  ← Run all (or one) seeder
+{% endif %}
+{% if testing_frameworks %}
+tests/                     ← Test suite{% if "pytest" in testing_frameworks %} (pytest){% endif %}
+{% endif %}
+{% if docker == "docker" %}
+docker/
+  runtimes/3.13/Dockerfile
+docker-compose.yml
+{% endif %}
+docs/
+{% if cli_support != "none" %}
+  cli.md
+{% endif %}
+{% if db_driver != "none" %}
+  database.md
+{% endif %}
+```
+
+---
+
+## Tech Stack
+
+| Component | Choice |
+|---|---|
+| Python | >=3.13 |
+{% if cli_support == "typer" %}
+| CLI framework | Typer |
+{% elif cli_support == "argparse" %}
+| CLI framework | argparse (stdlib) |
+{% endif %}
+{% if db_driver != "none" %}
+| Database driver | {{ db_driver }} |
+{% endif %}
+{% if db_abstraction != "none" %}
+| ORM / abstraction | {{ db_abstraction }} |
+{% endif %}
+{% if env_parsing == "dotenv" %}
+| Config / env | python-dotenv |
+{% elif env_parsing == "dynaconf" %}
+| Config / env | dynaconf |
+{% endif %}
+{% if logging_enabled %}
+| Logging | stdlib logging + rich handler |
+{% endif %}
+{% if testing_frameworks %}
+| Testing | {{ testing_frameworks | join(", ") }} |
+{% endif %}
+{% if docker == "docker" %}
+| Containerisation | Docker + Docker Compose |
+{% endif %}
+
+---
+
+## Code Generation Guidelines
+
+- Use `from __future__ import annotations` at the top of every module.
+- Use `pathlib.Path` for all filesystem paths — never `os.path`.
+{% if logging_enabled %}
+- Use `get_logger(name)` from `{{ pkg_name }}.logging` for diagnostics — never raw `print()`.
+{% endif %}
+{% if logging_enabled or env_parsing == "dotenv" %}
+- Read environment variables with `get_env(key)` from `{{ pkg_name }}.env` — never `os.environ.get()`.
+{% endif %}
+- Catch specific exceptions — never bare `except:` or silent `except ...: pass`.
+- Use f-strings for all string interpolation.
+- Type-annotate all public functions.
+
+---
+
+## Anti-Patterns to Avoid
+
+{% if logging_enabled or env_parsing == "dotenv" %}
+- ❌ Do not call `os.environ.get()` — use `get_env()` from `{{ pkg_name }}.env`.
+{% endif %}
+- ❌ Do not use `os.path` — use `pathlib.Path`.
+{% if cli_support == "typer" %}
+- ❌ Do not apply `@app.command()` in `commands/*.py` — register commands from `__main__.py`.
+{% endif %}
+{% if db_driver != "none" and db_driver != "nosql" %}
+- ❌ Do not write raw SQL outside of `database/migrations/` or `database/seeders/`.
+{% endif %}

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Run pre-commit checks on staged files.
+# Skips gracefully if pre-commit is not installed.
+#
+# Selected tools: {{ optional_deps | join(", ") }}
+#
+# Install pre-commit once with:
+#   pip install pre-commit
+
+if ! command -v pre-commit &>/dev/null; then
+  echo "ℹ️  pre-commit not installed — skipping hook" >&2
+  echo "   Run: pip install pre-commit" >&2
+  exit 0
+fi
+
+pre-commit run --hook-stage pre-commit

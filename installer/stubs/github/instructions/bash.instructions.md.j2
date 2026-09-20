@@ -1,0 +1,51 @@
+---
+applyTo: "scripts/**/*.sh"
+---
+
+# Bash Script Instructions
+
+## Script Header
+
+Every shell script must begin with:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+```
+
+- `set -e` — exit immediately on any error.
+- `set -u` — treat unset variables as errors.
+- `set -o pipefail` — propagate errors through pipelines.
+
+## Environment Variables
+
+- Read all runtime configuration from the environment — never hardcode credentials or paths.
+{% if env_parsing != "none" %}
+- Source `.env` before reading variables: `set -a && source .env && set +a`.
+{% endif %}
+- Provide clear error messages when required variables are missing:
+  ```bash
+  : "${DB_NAME:?DB_NAME is not set — set it in .env}"
+  ```
+
+## Error Handling
+
+- Print errors to stderr: `printf "Error: %s\n" "message" >&2`.
+- Exit with a non-zero code on failure: `exit 1`.
+- Use `trap 'cleanup' EXIT` to ensure cleanup runs even on error.
+
+## Script Structure
+
+- Keep each script focused on a single task.
+- Extract repeated logic into a function defined at the top of the script.
+- Name functions in `snake_case` and document any non-obvious behaviour with a comment.
+- Avoid subshell overhead — prefer `$(command)` over backticks.
+{% if db_driver not in ("none", "nosql") %}
+
+## Database Script Conventions
+
+- All migration files must be named with a zero-padded numeric prefix: `0001_description.up.sql`.
+- Run migration files in lexicographic order — do not depend on filesystem ordering.
+- Always log which file is being executed before running it.
+- Rollback scripts apply the last `.down.sql` only — never loop over all down files automatically.
+{% endif %}

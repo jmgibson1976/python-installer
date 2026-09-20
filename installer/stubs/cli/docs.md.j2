@@ -1,0 +1,194 @@
+# {{ project_name }} — CLI Reference
+{% if cli_support == "typer" %}
+## Running the CLI
+
+```bash
+# From source (development)
+python -m {{ pkg_name }} --help
+
+# After pip install
+{{ pkg_name }} --help
+```
+
+---
+
+## Global options
+
+> **Important:** Global options must be placed **before** the subcommand name:
+> ```bash
+> {{ pkg_name }} --verbose hello Alice   # ✅ correct
+> {{ pkg_name }} hello Alice --verbose   # ❌ wrong — verbose is not a hello option
+> ```
+
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--version` | | Print installed version and exit |
+| `--verbose` | `-v` | Enable DEBUG-level log output |
+| `--debug` | `-d` | Dump all parsed arguments before running the command |
+
+---
+
+## Commands
+
+### `hello`
+
+Greet a person by name.
+
+```bash
+{{ pkg_name }} hello NAME [OPTIONS]
+```
+
+| Argument / Option | Short | Default | Description |
+|-------------------|-------|---------|-------------|
+| `NAME` | | required | Name of the person to greet |
+| `--count` | `-n` | `1` | Number of times to repeat (must be ≥ 1) |
+| `--upper` / `--no-upper` | | off | Print greeting in UPPERCASE |
+
+**Examples:**
+
+```bash
+{{ pkg_name }} hello Alice
+{{ pkg_name }} hello Alice --count 3 --upper
+{{ pkg_name }} --verbose hello Alice
+{{ pkg_name }} --debug hello Alice --count 2
+```
+
+---
+
+## Adding a new command
+
+1. Create `src/{{ pkg_name }}/commands/my_command.py`.
+2. Define your function:
+
+```python
+# For Typer, define a function with typed arguments:
+def my_command(name: str = typer.Argument(..., help="...")) -> None:
+    """One-line description shown in --help."""
+    ...
+```
+
+3. Register it in `src/{{ pkg_name }}/__main__.py`:
+
+```python
+from {{ pkg_name }}.commands.my_command import my_command
+app.command("my-command")(my_command)
+```
+
+---
+
+## Debug mode
+
+Pass `--debug` (or `-d`) before any command to print all parsed arguments as a Rich panel before executing:
+
+```bash
+{{ pkg_name }} --debug hello Alice --count 2
+```
+
+Useful for verifying that flags and options are being parsed as expected without adding temporary print statements.
+
+---
+
+## Rich terminal output
+
+`rich.console.Console` is available in every command file. Use it for all user-facing output:
+
+```python
+from rich.console import Console
+console = Console()
+
+console.print("[green]Success![/green]")
+console.print(f"[bold]{name}[/bold]")
+console.print_exception()   # pretty tracebacks
+```
+
+See the [Rich documentation](https://rich.readthedocs.io/) for tables, panels, progress bars, and more.
+{% elif cli_support == "argparse" %}
+## Running the CLI
+
+```bash
+# From source (development)
+python -m {{ pkg_name }} --help
+
+# After pip install
+{{ pkg_name }} --help
+```
+
+---
+
+## Global options
+
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--verbose` | `-v` | Enable verbose output |
+| `--debug` | `-d` | Dump all parsed arguments before executing |
+
+> **Tip:** You can also set `APP_DEBUG=true` in your `.env` file to enable debug output without passing `--debug` every time.
+
+---
+
+## Commands
+
+### `hello`
+
+Greet a person by name.
+
+```bash
+{{ pkg_name }} hello NAME [OPTIONS]
+```
+
+| Argument / Option | Short | Default | Description |
+|-------------------|-------|---------|-------------|
+| `name` | | required | Name of the person to greet |
+| `--count` | `-n` | `1` | Number of times to repeat (must be ≥ 1) |
+| `--upper` | | off | Print greeting in UPPERCASE |
+
+**Examples:**
+
+```bash
+{{ pkg_name }} hello Alice
+{{ pkg_name }} hello Alice --count 3 --upper
+{{ pkg_name }} --debug hello Alice
+```
+
+---
+
+## Adding a new command
+
+1. Create `src/{{ pkg_name }}/commands/my_command.py`.
+2. Define `register()` and a command function:
+
+```python
+import argparse
+
+def register(subparsers) -> None:
+    p = subparsers.add_parser("my-command", description="What it does.")
+    p.add_argument("input", help="Required input.")
+    p.add_argument("--flag", action="store_true", help="A boolean flag.")
+
+def my_command(args: argparse.Namespace) -> None:
+    print(f"Running with: {args.input}, flag={args.flag}")
+```
+
+3. Import and wire it up in `src/{{ pkg_name }}/__main__.py`:
+
+```python
+from {{ pkg_name }}.commands.my_command import register as register_my, my_command
+# In App.run():
+register_my(subparsers)
+# In the dispatch block:
+elif args.command == "my-command":
+    my_command(args)
+```
+
+---
+
+## Debug mode
+
+Pass `--debug` (or `-d`) as a global flag to print all parsed arguments before executing:
+
+```bash
+{{ pkg_name }} --debug hello Alice --count 2
+```
+
+Or set `APP_DEBUG=true` in your `.env` to enable it permanently during development.
+{% endif %}

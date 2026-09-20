@@ -1,0 +1,60 @@
+"""
+test_sample — pytest starter tests for {{ project_name }}.
+
+This file demonstrates the pytest testing pattern used in this project.
+Add test functions below, or create additional test_*.py files following
+the same convention.
+
+Run the test suite:
+    python -m pytest
+    python -m pytest -v          # verbose output
+    python -m pytest --tb=short  # shorter tracebacks
+"""
+from __future__ import annotations
+
+
+# ---------------------------------------------------------------------------
+# Example: simple unit under test (inline for demo purposes).
+# Replace this with imports from your actual source modules.
+# ---------------------------------------------------------------------------
+
+def add(a: int, b: int) -> int:
+    return a + b
+
+
+def greet(name: str) -> str:
+    if not name.strip():
+        raise ValueError("name cannot be blank")
+    return f"Hello, {name}!"
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+def test_add_positive_numbers() -> None:
+    assert add(2, 3) == 5
+
+
+def test_add_negative_numbers() -> None:
+    assert add(-1, -2) == -3
+
+
+def test_add_zero_identity() -> None:
+    assert add(0, 42) == 42
+
+
+def test_greet_returns_greeting() -> None:
+    assert greet("World") == "Hello, World!"
+
+
+def test_greet_strips_whitespace_in_check() -> None:
+    # Leading/trailing whitespace in name passes through to the greeting
+    assert greet("  Alice  ") == "Hello,   Alice  !"
+
+
+def test_greet_raises_on_blank_name() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="name cannot be blank"):
+        greet("   ")

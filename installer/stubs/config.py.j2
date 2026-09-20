@@ -1,0 +1,115 @@
+"""
+Configuration for {{ project_name }}.
+
+Usage:
+    from {{ pkg_name }}.config import settings
+
+    # Attribute access
+    debug = settings.app.debug
+    db_url = settings.DATABASE_URL
+
+    # Dict access
+    name = settings["app"]["name"]
+
+    # Safe get with default
+    port = settings.get("APP_PORT", "8000")
+{% if env_parsing == "dotenv" %}
+Sources (merged in order, later values win):
+  1. configs/**/*.toml  — structured config files
+  2. .env               — environment-specific overrides
+{% elif env_parsing == "dynaconf" %}
+Sources (merged in order, later values win):
+  1. configs/**/*.toml  — structured config files
+  2. .env               — environment-specific overrides
+
+Reload at runtime with: settings.reload()
+{% endif %}
+"""
+from __future__ import annotations
+{% if env_parsing == "dotenv" %}
+import tomllib
+from pathlib import Path
+from typing import Any
+
+from dotenv import dotenv_values
+
+from {{ pkg_name }}.env import get_env
+
+_DEFAULT_ROOT = Path(__file__).resolve().parent.parent.parent
+_ROOT = Path(get_env("{{ pkg_name | upper }}_ROOT_DIR") or _DEFAULT_ROOT)
+
+
+class Settings:
+    """Merged configuration from configs/**/*.toml and .env."""
+
+    def __init__(self) -> None:
+        self._data: dict[str, Any] = {}
+        self._load()
+
+    def _load(self) -> None:
+        data: dict[str, Any] = {}
+
+        configs_dir = _ROOT / "configs"
+        if configs_dir.exists():
+            for toml_file in sorted(configs_dir.rglob("*.toml")):
+                with open(toml_file, "rb") as fh:
+                    _deep_merge(tomllib.load(fh), data)
+
+        _deep_merge(dict(dotenv_values(_ROOT / ".env")), data)
+
+        self._data = data
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._data.get(key, default)
+
+    def reload(self) -> None:
+        """Re-read all sources from disk."""
+        self._load()
+
+    def __getattr__(self, key: str) -> Any:
+        try:
+            return self._data[key]
+        except KeyError:
+            raise AttributeError(f"No config key {key!r}") from None
+
+    def __getitem__(self, key: str) -> Any:
+        return self._data[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._data
+
+
+def _deep_merge(source: dict[str, Any], target: dict[str, Any]) -> None:
+    """Recursively merge *source* into *target* in place."""
+    for key, value in source.items():
+        if isinstance(value, dict) and isinstance(target.get(key), dict):
+            _deep_merge(value, target[key])
+        else:
+            target[key] = value
+
+
+settings = Settings()
+{% elif env_parsing == "dynaconf" %}
+import glob
+from pathlib import Path
+
+from dynaconf import LazySettings
+
+_ROOT = Path(__file__).resolve().parent.parent.parent
+_CONFIGS_DIR = _ROOT / "configs"
+
+
+def _config_files() -> list[str]:
+    pattern = str(_CONFIGS_DIR / "**" / "*.toml")
+    return sorted(glob.glob(pattern, recursive=True))
+
+
+settings = LazySettings(
+    root_path=str(_CONFIGS_DIR),
+    settings_files=_config_files(),
+    merge_enabled=True,
+    load_dotenv=True,
+    dotenv_path=str(_ROOT / ".env"),
+    envvar_prefix=False,
+)
+{% endif %}

@@ -1,0 +1,588 @@
+"""
+database — database connection and CRUD helpers for {{ project_name }}.
+{% set has_env_module = (env_parsing == "dotenv" or logging_enabled) %}
+{% if db_abstraction != "none" %}
+This module uses SQLAlchemy as the ORM layer over
+{% if db_driver == "sqlite" -%}
+SQLite (stdlib — no extra driver install needed).
+{% elif db_driver == "mysql" or db_driver == "mariadb" -%}
+MySQL / MariaDB via pymysql.
+{% elif db_driver == "postgresql" -%}
+PostgreSQL via psycopg2-binary.
+{% elif db_driver == "mssql" -%}
+Microsoft SQL Server via pyodbc.
+{% elif db_driver == "oracle" -%}
+Oracle via python-oracledb.
+{% elif db_driver == "nosql" -%}
+MongoDB via pymongo.  Note: SQLAlchemy does not natively support MongoDB —
+consider using pymongo directly or a ODM like MongoEngine.
+{% endif %}
+Quick start
+-----------
+1.  Set DATABASE_URL in your `.env` file (see `.env.example`).
+2.  Call `init_db()` once at startup to create the tables.
+3.  Use `get_session()` as a context manager for every transaction.
+
+Example::
+
+    from {{ pkg_name }}.database import init_db, get_session, create_user, get_user
+
+    init_db()
+
+    with get_session() as session:
+        user = create_user(session, name="Alice", email="alice@example.com")
+        print(user.id, user.name)
+{% else %}
+This module provides a thin wrapper around the
+{% if db_driver == "sqlite" -%}
+built-in `sqlite3` module.
+{% elif db_driver == "mysql" or db_driver == "mariadb" -%}
+`pymysql` driver.
+{% elif db_driver == "postgresql" -%}
+`psycopg2` driver.
+{% elif db_driver == "mssql" -%}
+`pyodbc` driver.
+{% elif db_driver == "oracle" -%}
+`python-oracledb` driver.
+{% elif db_driver == "nosql" -%}
+`pymongo` driver.
+{% endif %}
+Quick start
+-----------
+1.  Set DATABASE_URL (or the relevant connection vars) in your `.env` file.
+2.  Use `get_connection()` as a context manager for every operation.
+
+Example::
+
+    from {{ pkg_name }}.database import get_connection
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        print(cursor.fetchone())
+{% endif %}
+"""
+from __future__ import annotations
+
+{% if db_abstraction != "none" %}
+from contextlib import contextmanager
+from typing import Generator
+
+{% if has_env_module %}
+from {{ pkg_name }}.env import get_env
+{% else %}
+import os
+{% endif %}
+
+from sqlalchemy import Integer, String, create_engine, text
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
+
+# ---------------------------------------------------------------------------
+# Engine
+# ---------------------------------------------------------------------------
+# DATABASE_URL examples:
+{% if db_driver == "sqlite" %}
+#   sqlite:///./{{ pkg_name }}.db          (relative path — dev)
+#   sqlite:////absolute/path/to/db.sqlite  (absolute path)
+{% elif db_driver == "mysql" or db_driver == "mariadb" %}
+#   mysql+pymysql://user:password@host:3306/dbname
+{% elif db_driver == "postgresql" %}
+#   postgresql+psycopg2://user:password@host:5432/dbname
+{% elif db_driver == "mssql" %}
+#   mssql+pyodbc://user:password@host:1433/dbname?driver=ODBC+Driver+17+for+SQL+Server
+{% elif db_driver == "oracle" %}
+#   oracle+oracledb://user:password@host:1521/service_name
+{% else %}
+#   See the SQLAlchemy docs for your driver's URL format.
+{% endif %}
+DATABASE_URL: str = {% if has_env_module %}get_env{% else %}os.environ.get{% endif %}(
+    "DATABASE_URL",
+{% if db_driver == "sqlite" %}
+    "sqlite:///./{{ pkg_name }}.db",
+{% else %}
+    "",  # Set DATABASE_URL in .env before running
+{% endif %}
+)
+
+engine = create_engine(
+    DATABASE_URL,
+{% if db_driver == "sqlite" %}
+    connect_args={"check_same_thread": False},  # required for SQLite + multi-thread
+{% endif %}
+    echo=False,  # Set to True to log all SQL statements
+)
+
+_SessionFactory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+
+# ---------------------------------------------------------------------------
+# Base and models
+# ---------------------------------------------------------------------------
+
+class Base(DeclarativeBase):
+    pass
+
+
+class User(Base):
+    """Example model — replace or extend with your own."""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"User(id={self.id!r}, name={self.name!r}, email={self.email!r})"
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def init_db() -> None:
+    """Create all tables that do not yet exist.  Safe to call on every startup."""
+    Base.metadata.create_all(bind=engine)
+
+
+@contextmanager
+def get_session() -> Generator[Session, None, None]:
+    """Yield a database session and commit/rollback automatically."""
+    session = _SessionFactory()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+# ---------------------------------------------------------------------------
+# CRUD helpers
+# ---------------------------------------------------------------------------
+
+def create_user(session: Session, *, name: str, email: str) -> User:
+    """Insert a new user row and return the persisted instance."""
+    user = User(name=name, email=email)
+    session.add(user)
+    session.flush()  # populate user.id without closing the transaction
+    return user
+
+
+def get_user(session: Session, user_id: int) -> User | None:
+    """Return the user with the given primary key, or None if not found."""
+    return session.get(User, user_id)
+
+
+def list_users(session: Session) -> list[User]:
+    """Return all users ordered by id."""
+    return session.query(User).order_by(User.id).all()
+
+
+def update_user(
+    session: Session,
+    user_id: int,
+    *,
+    name: str | None = None,
+    email: str | None = None,
+) -> User | None:
+    """Update name/email on an existing user.  Returns None if not found."""
+    user = get_user(session, user_id)
+    if user is None:
+        return None
+    if name is not None:
+        user.name = name
+    if email is not None:
+        user.email = email
+    return user
+
+
+def delete_user(session: Session, user_id: int) -> bool:
+    """Delete a user by id.  Returns True if deleted, False if not found."""
+    user = get_user(session, user_id)
+    if user is None:
+        return False
+    session.delete(user)
+    return True
+
+
+def health_check(session: Session) -> bool:
+    """Return True if the database is reachable."""
+    try:
+        session.execute(text("SELECT 1"))
+        return True
+    except Exception:
+        return False
+
+{% else %}
+# ---------------------------------------------------------------------------
+# Raw driver connection
+# ---------------------------------------------------------------------------
+# No ORM is configured — this module wraps the driver directly.
+# Replace the connection string / parameters with your real credentials.
+{% if db_driver == "sqlite" %}
+import sqlite3
+from contextlib import contextmanager
+from typing import Generator
+
+{% if has_env_module %}
+from {{ pkg_name }}.env import get_env
+
+DATABASE_PATH: str = get_env("DATABASE_PATH", "{{ pkg_name }}.db")
+{% else %}
+DATABASE_PATH: str = "{{ pkg_name }}.db"
+{% endif %}
+
+
+@contextmanager
+def get_connection() -> Generator[sqlite3.Connection, None, None]:
+    """Yield a sqlite3 connection and commit/rollback automatically."""
+    conn = sqlite3.connect(DATABASE_PATH)
+    conn.row_factory = sqlite3.Row  # rows act like dicts
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def init_db() -> None:
+    """Create the example 'users' table if it does not exist."""
+    with get_connection() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id    INTEGER PRIMARY KEY AUTOINCREMENT,
+                name  TEXT NOT NULL,
+                email TEXT NOT NULL UNIQUE
+            )
+            """
+        )
+
+
+def create_user(name: str, email: str) -> int:
+    """Insert a user and return the new row id."""
+    with get_connection() as conn:
+        cursor = conn.execute(
+            "INSERT INTO users (name, email) VALUES (?, ?)", (name, email)
+        )
+        return cursor.lastrowid
+
+
+def get_user(user_id: int) -> sqlite3.Row | None:
+    """Return a user row by id, or None if not found."""
+    with get_connection() as conn:
+        return conn.execute(
+            "SELECT * FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+
+
+def list_users() -> list[sqlite3.Row]:
+    """Return all user rows ordered by id."""
+    with get_connection() as conn:
+        return conn.execute("SELECT * FROM users ORDER BY id").fetchall()
+
+
+def update_user(user_id: int, *, name: str | None = None, email: str | None = None) -> bool:
+    """Update a user's fields.  Returns False if the user does not exist."""
+    fields: list[str] = []
+    values: list[object] = []
+    if name is not None:
+        fields.append("name = ?")
+        values.append(name)
+    if email is not None:
+        fields.append("email = ?")
+        values.append(email)
+    if not fields:
+        return False
+    values.append(user_id)
+    with get_connection() as conn:
+        cursor = conn.execute(
+            f"UPDATE users SET {', '.join(fields)} WHERE id = ?", values  # noqa: S608
+        )
+        return cursor.rowcount > 0
+
+
+def delete_user(user_id: int) -> bool:
+    """Delete a user by id.  Returns False if not found."""
+    with get_connection() as conn:
+        cursor = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        return cursor.rowcount > 0
+
+{% elif db_driver == "mysql" or db_driver == "mariadb" %}
+from contextlib import contextmanager
+from typing import Generator
+
+{% if has_env_module %}
+from {{ pkg_name }}.env import get_env
+{% else %}
+import os
+{% endif %}
+
+import pymysql
+import pymysql.cursors
+
+
+def _connection_params() -> dict:
+    {% if has_env_module %}
+    return {
+        "host":     get_env("DB_HOST", "127.0.0.1"),
+        "port":     int(get_env("DB_PORT", "3306")),
+        "user":     get_env("DB_USER", "root"),
+        "password": get_env("DB_PASSWORD", ""),
+        "database": get_env("DB_NAME", "{{ pkg_name }}"),
+        "cursorclass": pymysql.cursors.DictCursor,
+    }
+    {% else %}
+    return {
+        "host":     os.environ.get("DB_HOST", "127.0.0.1"),
+        "port":     int(os.environ.get("DB_PORT", "3306")),
+        "user":     os.environ.get("DB_USER", "root"),
+        "password": os.environ.get("DB_PASSWORD", ""),
+        "database": os.environ.get("DB_NAME", "{{ pkg_name }}"),
+        "cursorclass": pymysql.cursors.DictCursor,
+    }
+    {% endif %}
+
+
+@contextmanager
+def get_connection() -> Generator[pymysql.connections.Connection, None, None]:
+    """Yield a pymysql connection and commit/rollback automatically."""
+    conn = pymysql.connect(**_connection_params())
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def init_db() -> None:
+    """Create the example 'users' table if it does not exist."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS users (
+                    id    INT AUTO_INCREMENT PRIMARY KEY,
+                    name  VARCHAR(255) NOT NULL,
+                    email VARCHAR(255) NOT NULL UNIQUE
+                )
+                """
+            )
+
+
+def create_user(name: str, email: str) -> int:
+    """Insert a user and return the new row id."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO users (name, email) VALUES (%s, %s)", (name, email))
+            return cur.lastrowid
+
+
+def get_user(user_id: int) -> dict | None:
+    """Return a user dict by id, or None if not found."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+            return cur.fetchone()
+
+
+def list_users() -> list[dict]:
+    """Return all user rows ordered by id."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM users ORDER BY id")
+            return cur.fetchall()
+
+
+def update_user(user_id: int, *, name: str | None = None, email: str | None = None) -> bool:
+    """Update a user's fields.  Returns False if the user does not exist."""
+    fields: list[str] = []
+    values: list[object] = []
+    if name is not None:
+        fields.append("name = %s")
+        values.append(name)
+    if email is not None:
+        fields.append("email = %s")
+        values.append(email)
+    if not fields:
+        return False
+    values.append(user_id)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"UPDATE users SET {', '.join(fields)} WHERE id = %s", values)  # noqa: S608
+            return cur.rowcount > 0
+
+
+def delete_user(user_id: int) -> bool:
+    """Delete a user by id.  Returns False if not found."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
+            return cur.rowcount > 0
+
+{% elif db_driver == "postgresql" %}
+from contextlib import contextmanager
+from typing import Generator
+
+{% if has_env_module %}
+from {{ pkg_name }}.env import get_env
+{% else %}
+import os
+{% endif %}
+
+import psycopg2
+import psycopg2.extras
+
+
+def _dsn() -> str:
+    {% if has_env_module %}
+    return (
+        f"host={get_env('DB_HOST', '127.0.0.1')} "
+        f"port={get_env('DB_PORT', '5432')} "
+        f"dbname={get_env('DB_NAME', '{{ pkg_name }}')} "
+        f"user={get_env('DB_USER', 'postgres')} "
+        f"password={get_env('DB_PASSWORD', '')}"
+    )
+    {% else %}
+    return (
+        f"host={os.environ.get('DB_HOST', '127.0.0.1')} "
+        f"port={os.environ.get('DB_PORT', '5432')} "
+        f"dbname={os.environ.get('DB_NAME', '{{ pkg_name }}')} "
+        f"user={os.environ.get('DB_USER', 'postgres')} "
+        f"password={os.environ.get('DB_PASSWORD', '')}"
+    )
+    {% endif %}
+
+
+@contextmanager
+def get_connection() -> Generator[psycopg2.extensions.connection, None, None]:
+    """Yield a psycopg2 connection and commit/rollback automatically."""
+    conn = psycopg2.connect(_dsn(), cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def init_db() -> None:
+    """Create the example 'users' table if it does not exist."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS users (
+                    id    SERIAL PRIMARY KEY,
+                    name  VARCHAR(255) NOT NULL,
+                    email VARCHAR(255) NOT NULL UNIQUE
+                )
+                """
+            )
+
+
+def create_user(name: str, email: str) -> int:
+    """Insert a user and return the new row id."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO users (name, email) VALUES (%s, %s) RETURNING id",
+                (name, email),
+            )
+            row = cur.fetchone()
+            return row["id"]
+
+
+def get_user(user_id: int) -> dict | None:
+    """Return a user dict by id, or None if not found."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+            return cur.fetchone()
+
+
+def list_users() -> list[dict]:
+    """Return all user rows ordered by id."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM users ORDER BY id")
+            return cur.fetchall()
+
+
+def update_user(user_id: int, *, name: str | None = None, email: str | None = None) -> bool:
+    """Update a user's fields.  Returns False if the user does not exist."""
+    fields: list[str] = []
+    values: list[object] = []
+    if name is not None:
+        fields.append("name = %s")
+        values.append(name)
+    if email is not None:
+        fields.append("email = %s")
+        values.append(email)
+    if not fields:
+        return False
+    values.append(user_id)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"UPDATE users SET {', '.join(fields)} WHERE id = %s", values)  # noqa: S608
+            return cur.rowcount > 0
+
+
+def delete_user(user_id: int) -> bool:
+    """Delete a user by id.  Returns False if not found."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
+            return cur.rowcount > 0
+
+{% else %}
+# Driver-specific connection setup for {{ db_driver }}.
+# Update the connection parameters below to match your environment.
+{% if has_env_module %}
+from {{ pkg_name }}.env import get_env
+{% else %}
+import os
+{% endif %}
+from contextlib import contextmanager
+from typing import Any, Generator
+
+
+@contextmanager
+def get_connection() -> Generator[Any, None, None]:
+    """
+    Replace this stub with the appropriate connection call for {{ db_driver }}.
+
+    Example pattern:
+        conn = your_driver.connect(host=..., user=..., password=..., database=...)
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    """
+    raise NotImplementedError(
+        "Configure get_connection() in database.py for driver '{{ db_driver }}'."
+    )
+    yield  # type: ignore[misc]  # makes the type-checker happy
+
+
+def init_db() -> None:
+    """Create tables / collections needed by the application."""
+    raise NotImplementedError("Implement init_db() for driver '{{ db_driver }}'.")
+
+{% endif %}
+{% endif %}

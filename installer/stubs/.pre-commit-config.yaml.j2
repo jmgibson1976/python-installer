@@ -1,0 +1,89 @@
+repos:
+  # ── General hygiene ────────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+      - id: check-ast
+      - id: debug-statements
+      - id: check-yaml
+      - id: check-toml
+{% if "detect-secrets" in optional_deps %}
+      - id: detect-aws-credentials
+        args: [--allow-missing-credentials]
+{% endif %}
+
+{% if "black" in optional_deps %}
+  # ── Code formatter ─────────────────────────────────────────────────────────
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+
+{% endif %}
+{% if "ruff" in optional_deps %}
+  # ── Linter + formatter ─────────────────────────────────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+
+{% endif %}
+{% if "flake8" in optional_deps %}
+  # ── Style linter ───────────────────────────────────────────────────────────
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.1.1
+    hooks:
+      - id: flake8
+
+{% endif %}
+{% if "isort" in optional_deps %}
+  # ── Import sorter ──────────────────────────────────────────────────────────
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+
+{% endif %}
+{% if "pyupgrade" in optional_deps %}
+  # ── Python syntax upgrader ─────────────────────────────────────────────────
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.17.0
+    hooks:
+      - id: pyupgrade
+        args: [--py312-plus]
+
+{% endif %}
+{% if "mypy" in optional_deps %}
+  # ── Static type checker ────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        exclude: ^tests/
+
+{% endif %}
+{% if "bandit" in optional_deps %}
+  # ── Security linter ────────────────────────────────────────────────────────
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.9
+    hooks:
+      - id: bandit
+        args: [-q, -r, src/]
+        exclude: ^tests/
+
+{% endif %}
+{% if "detect-secrets" in optional_deps %}
+  # ── Secret detection ───────────────────────────────────────────────────────
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: [--baseline, .secrets.baseline]
+
+{% endif %}

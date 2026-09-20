@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Pre-commit hook — runs basic checks before every commit.
+# To skip in an emergency: git commit --no-verify
+
+set -euo pipefail
+
+# Collect staged Python files
+STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+
+if [[ -z "$STAGED_PY" ]]; then
+  exit 0
+fi
+
+printf "🔍 Running pre-commit checks on staged Python files...\n"
+
+# Check for syntax errors using Python itself
+while IFS= read -r file; do
+  if ! python3 -m py_compile "$file" 2>/dev/null; then
+    printf "❌ Syntax error in %s\n" "$file" >&2
+    exit 1
+  fi
+done <<< "$STAGED_PY"
+
+printf "✅ All checks passed.\n"
+exit 0

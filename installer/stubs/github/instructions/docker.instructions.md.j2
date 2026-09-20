@@ -1,0 +1,36 @@
+---
+applyTo: "Dockerfile,docker-compose.yml,docker/**"
+---
+
+# Docker Instructions
+
+## Dockerfile Conventions
+
+- Use multi-stage builds to keep the final image small:
+  - `builder` stage: installs dependencies and builds the package.
+  - `runtime` stage: copies only the installed package from `builder`.
+- Always pin the base image to a specific version tag — never use `latest`.
+- Set `WORKDIR` before any `COPY` or `RUN` instructions.
+- Run the application as a non-root user — create one with `useradd` or `adduser`.
+- Use `ENV` for default configuration values that operators are expected to override.
+- Document every `ARG` and `ENV` with a comment explaining its purpose.
+
+## docker-compose.yml Conventions
+
+- Store all secrets and environment-specific values in `.env` — reference them as `${VAR_NAME}`.
+- Never hardcode credentials in `docker-compose.yml`.
+- Define named volumes for any persistent data (databases, logs).
+- Use `depends_on` with `condition: service_healthy` rather than sleep hacks.
+- Add a `healthcheck` to every long-running service.
+
+## Environment Variables
+
+- All `ENV` values in the Dockerfile that are configurable must be present in `.env.example`.
+- Use `PYTHONDONTWRITEBYTECODE=1` and `PYTHONUNBUFFERED=1` in Python containers.
+
+## Build & Run
+
+- Build the image with: `docker compose build`
+- Start services with: `docker compose up -d`
+- View logs with: `docker compose logs -f`
+- Stop and remove containers with: `docker compose down`

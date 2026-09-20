@@ -1,0 +1,45 @@
+---
+applyTo: "**/*.py"
+---
+
+# Python Instructions
+
+## Code Style & Module Conventions
+
+- Begin every module with `from __future__ import annotations`.
+- Use `pathlib.Path` for all filesystem paths — never `os.path`.
+{% if logging_enabled %}
+- Use `get_logger(name)` from `{{ pkg_name }}.logging` for diagnostics — never raw `print()`.
+{% endif %}
+{% if logging_enabled or env_parsing == "dotenv" %}
+- Read all environment variables via `get_env(key)` from `{{ pkg_name }}.env` — never `os.environ.get()` or `os.getenv()`.
+{% endif %}
+- Use `field(default_factory=...)` for mutable dataclass fields — never a bare `default=[]`.
+- Use f-strings for all string interpolation.
+
+## Error Handling
+
+- Catch specific exceptions — never bare `except:` or silent `except ...: pass` without a comment.
+- Use logging for unexpected runtime errors — never `print()`.
+- Always clean up resources (files, connections) in a `finally` block.
+
+## Type Annotations
+
+- Annotate all public functions with parameter and return types.
+- Use `list[T]`, `dict[K, V]`, `tuple[A, B]` (lowercase generics, PEP 585) — not `List`, `Dict`, `Tuple` from `typing`.
+- Use `X | None` instead of `Optional[X]` (PEP 604).
+{% if cli_support == "typer" %}
+
+## CLI Rules (Typer)
+
+- Register commands from `__main__.py` using `app.command("name")(fn)` — never apply `@app.command()` in `commands/*.py`.
+- Global flags (`--verbose`, `--debug`, etc.) belong on `@app.callback()` — not on individual commands.
+- Validate input in the command function body using `typer.BadParameter` — do not add separate validator functions just for options.
+{% elif cli_support == "argparse" %}
+
+## CLI Rules (argparse)
+
+- Keep `__main__.py` thin: it creates the `App` and calls `run()` only.
+- Each command module exposes `register(subparsers)` (registers args) and `<name>_command(args)` (executes).
+- Never call `os.environ.get()` for runtime flags — use `get_env()` or argparse defaults.
+{% endif %}

@@ -1,0 +1,57 @@
+# AI and git tools
+# .claude/
+# .github/
+.git/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Package distribution
+dist/
+build/
+*.egg-info/
+
+# python-installer runtime files
+.python-installer/
+*.db
+*.sqlite
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Pre-commit hooks
+.pre-commit-config.yaml
+.pre-commit-hooks.yaml
+.pre-commit-cache/
+.secrets-baseline
+
+# Installer exclusions - things that were ignored by other .gitignores but we want to include in the installer repo
+!installer/stubs/.env.example.j2
+
+# graphify output
+graphify-out/

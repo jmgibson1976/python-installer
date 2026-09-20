@@ -1,0 +1,16 @@
+---
+agent: feature-planner
+description: "Plan a new feature using the feature-planner agent (research-only, no edits)"
+---
+
+Plan the **${input:featureName:Feature name (e.g. user-auth, csv-export, rate-limiting)}** feature for `{{ project_name }}`.
+
+Research the codebase and produce a full implementation plan with:
+- A summary of what the feature does
+- Files to create and files to modify (with specific paths)
+- An implementation checklist
+{% if testing_frameworks %}
+- Test cases to add
+{% endif %}
+
+Do not edit any files. Present the plan for review first.

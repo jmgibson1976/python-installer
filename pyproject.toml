@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "python-installer"
+version = "0.0.1"
+description = "Project python-installer: A python CLI tool to install a base project structure for a new python project."
+readme = "README.md"
+requires-python = ">=3.13"
+authors = [{ name = "Jeremy M. Gibson", email = "jeremy@jeremymgibson.dev" }]
+keywords = [""]
+dependencies = [
+    "python-dotenv>=1.0",
+    "typer>=0.25.0",
+    "rich>=13.0",
+    "questionary>=2.0",
+    "jinja2>=3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[tool.setuptools]
+packages = [
+    "installer",
+    "installer.commands",
+    "installer.prompts",
+    "installer.generator",
+    "installer.models",
+]
+include-package-data = true
+
+[project.scripts]
+installer = "installer.__main__:main"

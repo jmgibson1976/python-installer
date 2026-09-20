@@ -1,0 +1,346 @@
+# Pre-commit Hooks
+
+This project uses [pre-commit](https://pre-commit.com) to run code quality checks
+automatically before every `git commit`. No check needs to be run manually — they fire on
+`git commit` and block the commit if any hook fails.
+
+---
+
+## Installation
+
+```bash
+pip install pre-commit
+```
+
+That's all — git is already configured to use `.githooks/` and the `pre-commit` wrapper
+script is already in place. No `pre-commit install` needed.
+
+To run all hooks manually on the entire codebase (without committing):
+
+```bash
+pre-commit run --all-files
+```
+
+To run a single hook by id:
+
+```bash
+pre-commit run <hook-id> --all-files
+```
+
+---
+
+## Git integration
+
+This project configures git to look for hooks in `.githooks/` instead of the default
+`.git/hooks/`. This allows the hook scripts to be version-controlled and shared with
+collaborators.
+
+`git config --local core.hooksPath .githooks` is set **per-project** (written to
+`.git/config`). It only affects this repository — every other repo on your machine
+continues using whatever hooks path is configured globally.
+
+### Hook execution flow
+
+Here is exactly what happens when you run `git commit`:
+
+1. **`.githooks/pre-commit` fires** — git calls this because `core.hooksPath = .githooks`.
+   It runs `pre-commit run --hook-stage pre-commit` against your staged files, executing
+   the tools selected during project setup ({{ optional_deps | join(", ") }}).
+   If any check fails the commit is blocked here and nothing further runs.
+
+2. **`.githooks/prepare-commit-msg` fires** — this script immediately `exec`s into
+   `~/.copilot/hooks/prepare-commit-msg` (if present), which generates an AI commit
+   message from the staged diff. From git's perspective it is one uninterrupted hook;
+   the Copilot logic runs as part of it.
+
+3. **Commit is written.**
+
+4. **`.githooks/post-commit` fires** — delegates to `~/.copilot/hooks/post-commit`
+   (auto-pushes the branch to remote).
+
+On `git push`:
+
+5. **`.githooks/pre-push` fires** — delegates to `~/.copilot/hooks/pre-push`
+   (auto-creates a draft GitHub PR for the branch).
+
+Git only ever calls `.githooks/<name>`. It has no knowledge of the Copilot hooks — the
+delegation scripts are the bridge. Because they use `exec "$HOOK" "$@"` the Copilot hook
+*replaces* the delegation process (same PID, same args, same exit code). Both sets of
+behaviour run, in the right order, with no duplication.
+
+### Hook scripts in `.githooks/`
+
+| Script | Purpose |
+|--------|---------|
+| `pre-commit` | Runs pre-commit framework checks on staged files |
+| `prepare-commit-msg` | Delegates to `~/.copilot/hooks/prepare-commit-msg` if present |
+| `post-commit` | Delegates to `~/.copilot/hooks/post-commit` if present |
+| `pre-push` | Delegates to `~/.copilot/hooks/pre-push` if present |
+
+The three delegation hooks silently skip if the global Copilot hooks are not installed on
+a collaborator's machine — they will never block a commit.
+
+> **Why not `.git/hooks/`?**  If your machine has `core.hooksPath` set globally
+> (e.g. to `~/.copilot/hooks/`), git ignores `.git/hooks/` entirely. A project-local
+> `core.hooksPath` takes precedence and lets both the pre-commit framework and global
+> hooks coexist cleanly.
+
+### For new contributors
+
+After cloning the repository, install pre-commit once:
+
+```bash
+pip install pre-commit
+```
+
+No `pre-commit install` is required — `.githooks/pre-commit` is already in place and git
+is already configured to use `.githooks/` via the committed `.git/config` setting.
+
+---
+
+## Updating hook versions
+
+Hook revisions are pinned in `.pre-commit-config.yaml`. To upgrade all hooks to their
+latest versions:
+
+```bash
+pre-commit autoupdate
+```
+
+---
+
+## Hygiene hooks (always active)
+
+These run on every commit regardless of which optional tools you selected.
+
+| Hook | What it does |
+|------|--------------|
+| `trailing-whitespace` | Removes trailing spaces and tabs from every line |
+| `end-of-file-fixer` | Ensures every file ends with exactly one newline |
+| `check-added-large-files` | Blocks commits that accidentally add large binary files |
+| `check-merge-conflict` | Prevents committing files that still contain merge conflict markers (`<<<<<<`, `>>>>>>`) |
+| `mixed-line-ending` | Normalises line endings — prevents CRLF/LF mixing |
+| `check-ast` | Parses every `.py` file and errors if the syntax is invalid Python |
+| `debug-statements` | Blocks commits that contain `pdb`, `ipdb`, `breakpoint()`, etc. |
+| `check-yaml` | Validates YAML files are well-formed |
+| `check-toml` | Validates TOML files (including `pyproject.toml`) |
+{% if "detect-secrets" in optional_deps %}
+| `detect-aws-credentials` | Scans for accidentally committed AWS key patterns |
+{% endif %}
+
+---
+
+## Selected tool hooks
+{% if "black" in optional_deps %}
+
+### black — Code formatter
+
+[black](https://black.readthedocs.io) reformats Python code to a consistent style.
+It is opinionated and non-configurable by design (line length aside).
+
+```bash
+# Auto-format the entire project
+black src/ tests/
+```
+
+**What it changes:** indentation, string quotes, trailing commas, blank lines between
+functions/classes, long line wrapping.
+
+> If `black` and `ruff` are both enabled, run `black` first — `ruff` understands black's
+> formatting and will not conflict.
+{% endif %}
+{% if "ruff" in optional_deps %}
+
+### ruff — Fast linter and formatter
+
+[ruff](https://docs.astral.sh/ruff) is an extremely fast Python linter written in Rust.
+It replaces `flake8`, `isort`, and several other tools. The hook runs with `--fix` so
+auto-fixable violations are corrected in place.
+
+```bash
+# Lint and auto-fix
+ruff check src/ tests/ --fix
+
+# Format (ruff's own formatter)
+ruff format src/ tests/
+```
+
+Common rule categories enabled by default: `E`/`W` (pycodestyle), `F` (pyflakes),
+`UP` (pyupgrade), `I` (isort).  Configure in `pyproject.toml`:
+
+```toml
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
+ignore = ["E501"]
+```
+{% endif %}
+{% if "flake8" in optional_deps %}
+
+### flake8 — Style linter
+
+[flake8](https://flake8.pycqa.org) checks Python code for PEP 8 style violations,
+undefined names, and unused imports.
+
+```bash
+flake8 src/ tests/
+```
+
+Configure in `pyproject.toml` or `.flake8`:
+
+```toml
+[tool.flake8]
+max-line-length = 100
+extend-ignore = ["E203"]
+```
+{% endif %}
+{% if "isort" in optional_deps %}
+
+### isort — Import sorter
+
+[isort](https://pycqa.github.io/isort) automatically sorts and groups `import` statements
+(stdlib → third-party → local) following PEP 8.
+
+```bash
+# Sort imports in place
+isort src/ tests/
+```
+
+Configure in `pyproject.toml` to match your formatter:
+
+```toml
+[tool.isort]
+profile = "black"   # compatible with black's style
+```
+{% endif %}
+{% if "pyupgrade" in optional_deps %}
+
+### pyupgrade — Syntax upgrader
+
+[pyupgrade](https://github.com/asottile/pyupgrade) automatically rewrites Python code to
+use modern syntax available in Python 3.13+. Examples:
+
+- `"%s" % x` → `f"{x}"`
+- `dict()` → `{}`
+- old-style `super(ClassName, self)` → `super()`
+- `Union[X, Y]` → `X | Y`
+
+This hook makes no semantic changes — it only adopts syntax the current Python version
+supports natively.
+{% endif %}
+{% if "mypy" in optional_deps %}
+
+### mypy — Static type checker
+
+[mypy](https://mypy.readthedocs.io) analyses type annotations and catches type errors
+before runtime. The hook is configured with `--strict` and excludes `tests/`.
+
+```bash
+# Run mypy manually
+mypy src/
+
+# With full strict mode
+mypy src/ --strict
+```
+
+Add inline overrides when a third-party library has no stubs:
+
+```python
+import some_untyped_lib  # type: ignore[import-untyped]
+```
+
+Add missing stubs as dev dependencies where available:
+
+```bash
+pip install types-requests types-python-dateutil
+```
+{% endif %}
+{% if "bandit" in optional_deps %}
+
+### bandit — Security linter
+
+[bandit](https://bandit.readthedocs.io) scans Python code for common security issues
+(SQL injection patterns, use of `eval`, hardcoded passwords, insecure hash algorithms, etc.).
+
+The hook targets `src/` and runs quietly (`-q`):
+
+```bash
+# Run manually
+bandit -r src/
+
+# Verbose output with more detail
+bandit -r src/ -v
+```
+
+To suppress a specific finding that is a false positive, add a comment:
+
+```python
+password = get_env("DB_PASSWORD")  # nosec B105
+```
+
+See [bandit issue codes](https://bandit.readthedocs.io/en/latest/plugins/index.html) for
+the full list of checks.
+{% endif %}
+{% if "detect-secrets" in optional_deps %}
+
+### detect-secrets — Secret scanner
+
+[detect-secrets](https://github.com/Yelp/detect-secrets) scans every file for patterns
+that look like secrets (API keys, tokens, passwords, connection strings).
+
+**First-time setup** — create a baseline so existing non-secrets are acknowledged:
+
+```bash
+detect-secrets scan > .secrets.baseline
+git add .secrets.baseline
+```
+
+The hook then only flags *new* secrets introduced after the baseline was created.
+
+To update the baseline (e.g. after adding a legitimate-looking config value):
+
+```bash
+detect-secrets scan --update .secrets.baseline
+```
+
+To audit the current baseline interactively:
+
+```bash
+detect-secrets audit .secrets.baseline
+```
+
+> Add `.secrets.baseline` to version control — it's safe to commit and lets the team
+> share the same allowlist.
+{% endif %}
+
+---
+
+## Skipping hooks
+
+To bypass all hooks for a single commit (use sparingly):
+
+```bash
+git commit --no-verify -m "WIP: work in progress"
+```
+
+To skip a specific hook only:
+
+```bash
+SKIP=mypy git commit -m "feat: add feature"
+```
+
+---
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| Hook not found / wrong version | `pre-commit clean` then re-run `pre-commit run --all-files` |
+| Hooks run but don't fix files | Most hooks auto-fix; stage the changes (`git add .`) and commit again |
+| `mypy` reports missing stubs | `pip install types-<package>` for the affected library |
+{% if "detect-secrets" in optional_deps %}
+| `detect-secrets` blocks a false positive | Run `detect-secrets scan --update .secrets.baseline` |
+{% endif %}
+| Want to ignore a specific file | Add `exclude: ^path/to/file` under the hook in `.pre-commit-config.yaml` |

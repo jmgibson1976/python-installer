@@ -1,0 +1,276 @@
+# {{ project_name }}
+
+A new Python project.
+
+## Getting Started
+{% if docker == "venv" %}
+Create and activate a virtual environment, then install dependencies:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+```
+{% elif docker == "docker" %}
+Build and start the project with Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+Copy `.env.example` to `.env` and adjust values before starting:
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+{% else %}
+Install dependencies:
+
+```bash
+pip install -e ".[dev]"
+```
+{% endif %}
+
+## Running
+{% if docker == "docker" %}
+```bash
+docker compose up
+```
+
+To run a one-off command inside the container:
+
+```bash
+docker compose run --rm app python -m {{ pkg_name }}
+```
+{% else %}
+```bash
+python -m {{ pkg_name }}
+```
+{% endif %}
+{% if testing_frameworks %}
+
+## Testing
+{% if docker == "docker" %}
+```bash
+docker compose run --rm app python -m pytest
+```
+{% else %}
+```bash
+python -m pytest
+```
+{% endif %}
+{% endif %}
+{% if logging_enabled %}
+
+## Logging
+
+Logging is initialised automatically when the package is imported.  Log files
+are written to `logs/` at the project root.
+
+### Basic usage
+
+```python
+from {{ pkg_name }}.logging import get_logger
+
+logger = get_logger(__name__)
+logger.info("Application started")
+logger.debug("Value: %s", some_value)
+logger.warning("Something looks off")
+logger.error("An error occurred", exc_info=True)
+```
+
+### Configuration
+
+Set these keys in your `.env` file:
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `LOG_LEVEL` | `INFO` | Minimum level to record (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+| `LOG_RETENTION_DAYS` | `30` | Log files older than this many days are deleted on startup |
+| `LOG_CONSOLE` | `true` | Set to `false` to suppress terminal output |
+
+Log files are named `MMDDYYYY.log` and rotated daily by filename.
+
+### Rich terminal output
+
+When `LOG_CONSOLE=true`, output is formatted with [Rich](https://rich.readthedocs.io)
+(coloured levels, pretty tracebacks, timestamps).
+
+For output that is *not* part of the logging system (progress bars, tables,
+user-facing messages), use `rich.console.Console` directly:
+
+```python
+from rich.console import Console
+
+console = Console()
+console.print("[green]✓[/green] Done")
+console.print("[bold red]Error:[/bold red] something went wrong")
+```
+
+Rich markup uses `[colour]text[/colour]` tags.  See the
+[Rich documentation](https://rich.readthedocs.io/en/stable/markup.html) for the
+full list of styles.
+{% endif %}
+{% if db_driver != "none" %}
+## Database
+{% if db_driver == "nosql" %}
+This project uses **MongoDB** (pymongo).  See [`docs/database.md`](docs/database.md) for connection setup and usage.
+{% elif db_abstraction == "sqlalchemy" %}
+This project uses **SQLAlchemy** ORM with
+{% if db_driver == "sqlite" %}SQLite{% elif db_driver == "mysql" %}MySQL{% elif db_driver == "mariadb" %}MariaDB{% elif db_driver == "postgresql" %}PostgreSQL{% elif db_driver == "mssql" %}MSSQL{% elif db_driver == "oracle" %}Oracle{% endif %}.
+See [`docs/database.md`](docs/database.md) for connection setup, ORM usage, and script reference.
+
+### Quick commands
+
+```bash
+./scripts/migrate.sh          # apply all pending migrations
+./scripts/rollback.sh         # reverse the last migration
+./scripts/refresh.sh          # rollback all, then re-migrate (destructive!)
+./scripts/seed.sh             # run all seeders
+./scripts/seed.sh 001_name    # run one seeder by name
+```
+{% else %}
+This project uses a raw
+{% if db_driver == "sqlite" %}sqlite3{% elif db_driver in ("mysql","mariadb") %}pymysql{% elif db_driver == "postgresql" %}psycopg2{% elif db_driver == "mssql" %}pyodbc{% elif db_driver == "oracle" %}python-oracledb{% endif %}
+driver.  See [`docs/database.md`](docs/database.md) for connection setup and script reference.
+
+### Quick commands
+
+```bash
+./scripts/migrate.sh          # apply all pending migrations
+./scripts/rollback.sh         # reverse the last migration
+./scripts/refresh.sh          # rollback all, then re-migrate (destructive!)
+./scripts/seed.sh             # run all seeders
+./scripts/seed.sh 001_name    # run one seeder by name
+```
+{% endif %}
+{% endif %}
+## Tech Stack
+
+| Component | Selection | Type |
+|-----------|-----------|------|
+{% if db_driver == "none" -%}
+| Database driver | None | — |
+{% elif db_driver == "sqlite" -%}
+| Database driver | sqlite3 | stdlib |
+{% elif db_driver == "mysql" -%}
+| Database driver | pymysql (MySQL) | installable |
+{% elif db_driver == "mariadb" -%}
+| Database driver | pymysql (MariaDB) | installable |
+{% elif db_driver == "postgresql" -%}
+| Database driver | psycopg2-binary (PostgreSQL) | installable |
+{% elif db_driver == "mssql" -%}
+| Database driver | pyodbc (MSSQL) | installable |
+{% elif db_driver == "oracle" -%}
+| Database driver | python-oracledb (Oracle) | installable |
+{% elif db_driver == "nosql" -%}
+| Database driver | pymongo (MongoDB) | installable |
+{% endif -%}
+{% if db_abstraction == "none" -%}
+| Database abstraction | None (raw driver) | — |
+{% elif db_abstraction == "sqlalchemy" -%}
+| Database abstraction | SQLAlchemy (ORM) | installable |
+{% elif db_abstraction == "databases" -%}
+| Database abstraction | databases (async) | installable |
+{% endif -%}
+{% if "pytest" in testing_frameworks -%}
+| Testing | pytest | installable |
+{% endif -%}
+{% if "unittest" in testing_frameworks -%}
+| Testing | unittest | stdlib |
+{% endif -%}
+{% if "mock" in testing_frameworks -%}
+| Testing | unittest.mock | stdlib |
+{% endif -%}
+{% if "hypothesis" in testing_frameworks -%}
+| Testing | hypothesis | installable |
+{% endif -%}
+{% if "robotframework" in testing_frameworks -%}
+| Testing | Robot Framework | installable |
+{% endif -%}
+{% if "selenium" in testing_frameworks -%}
+| Testing | selenium | installable |
+{% endif -%}
+{% if "playwright" in testing_frameworks -%}
+| Testing | playwright | installable |
+{% endif -%}
+{% if "testcontainers" in testing_frameworks -%}
+| Testing | testcontainers | installable |
+{% endif -%}
+{% if logging_enabled -%}
+| Logging | logging + rich | stdlib + installable |
+{% endif -%}
+{% if env_parsing == "dotenv" -%}
+| Environment | python-dotenv | installable |
+{% elif env_parsing == "dynaconf" -%}
+| Environment | dynaconf | installable |
+{% elif env_parsing == "none" -%}
+| Environment | None | — |
+{% endif -%}
+{% if cli_support == "typer" -%}
+| CLI | typer | installable |
+{% elif cli_support == "argparse" -%}
+| CLI | argparse | stdlib |
+{% elif cli_support == "none" -%}
+| CLI | None | — |
+{% endif %}
+> **stdlib** entries require no installation — they ship with Python 3.13+.
+
+{% if env_parsing != "none" %}
+
+## Environment variables
+
+Copy `.env.example` to `.env` and fill in any values marked as required:
+
+```bash
+cp .env.example .env
+```
+
+All `.env` reads in this project go through `{{ pkg_name }}.env.get_env()`,
+which caches the parsed file so the disk is only read once per process.  To
+force a re-read (e.g. in tests that write to `.env`):
+
+```python
+from {{ pkg_name }}.env import reload_env
+reload_env()
+```
+{% endif %}
+{% if ai_setup %}
+
+## AI assistant (GitHub Copilot)
+
+This project includes a `.github/` workspace configuration for GitHub Copilot.
+See [`docs/copilot.md`](docs/copilot.md) for a full guide on what's included and how to use it.
+
+### Quick reference
+
+| File / directory | Purpose |
+|---|---|
+| `.github/copilot-instructions.md` | Project-specific rules loaded into every Copilot chat |
+| `.github/instructions/` | Per-file-type coding conventions (`applyTo` pattern) |
+| `.github/skills/run-tests/` | `/run-tests` skill — run the test suite from chat |
+| `.github/agents/feature-planner.agent.md` | Research-only planning agent (no file edits) |
+{% if git -%}
+| `.github/prompts/new-feature.prompt.md` | Prompt: scaffold a new feature end-to-end |
+| `.github/prompts/plan-feature.prompt.md` | Prompt: plan a feature using the planner agent |
+| `.github/hooks/pre-commit` | Git hook: block commits with syntax errors |
+{% endif -%}
+| `.github/hooks/hooks.json` | Copilot lifecycle hooks (auto-syntax check on save) |
+{% endif %}
+{% if optional_deps %}
+
+## Pre-commit hooks
+
+This project uses [pre-commit](https://pre-commit.com) to enforce code quality on every
+`git commit`. Selected tools: `{{ optional_deps | join("`, `") }}`.
+
+```bash
+pip install pre-commit
+pre-commit install        # wire hooks into git
+pre-commit run --all-files  # run everything without committing
+```
+
+See [`docs/pre-commit.md`](docs/pre-commit.md) for what each hook does, configuration
+tips, and troubleshooting.
+{% endif %}

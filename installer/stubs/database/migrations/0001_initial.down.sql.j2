@@ -1,0 +1,14 @@
+-- Migration: 0001_initial
+-- Direction: DOWN (rollback)
+-- Drops the initial users table.
+
+BEGIN;
+
+{% if db_driver == "mssql" %}
+IF OBJECT_ID('dbo.users', 'U') IS NOT NULL
+    DROP TABLE dbo.users;
+{% else %}
+DROP TABLE IF EXISTS users;
+{% endif %}
+
+COMMIT;

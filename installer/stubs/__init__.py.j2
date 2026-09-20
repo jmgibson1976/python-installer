@@ -1,0 +1,54 @@
+"""
+{{ project_name }} package.
+
+This file is executed on every ``import {{ pkg_name }}``.  It sets up the
+package's path constants, stamps the process start time, and (optionally)
+bootstraps logging so it is ready before any application code runs.
+"""
+from __future__ import annotations
+
+import os
+from datetime import datetime
+from pathlib import Path
+
+# ── Package version (read from pyproject.toml at runtime — update version     ─
+# ── there only; everything else follows automatically)                         ─
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
+
+try:
+    __version__: str = _pkg_version("{{ project_name }}")
+except PackageNotFoundError:
+    __version__ = "0.0.0"  # package not yet installed (e.g. running from source)
+
+# ── Path constants (derived from this file's location, never from os.environ) ─
+ROOT_DIR: Path = Path(__file__).resolve().parent.parent.parent   # project root
+SRC_DIR: Path  = Path(__file__).resolve().parent                 # src/<pkg>/
+{% if logging_enabled %}
+LOGS_DIR: Path = ROOT_DIR / "logs"
+{% endif %}
+
+# ── Publish paths to os.environ so sub-modules (logging, env, etc.) can find  ─
+# ── the project root without re-deriving it from __file__ themselves.          ─
+os.environ["{{ pkg_name | upper }}_ROOT_DIR"] = str(ROOT_DIR)
+os.environ["{{ pkg_name | upper }}_SRC_DIR"]  = str(SRC_DIR)
+{% if logging_enabled %}
+os.environ["{{ pkg_name | upper }}_LOGS_DIR"] = str(LOGS_DIR)
+{% endif %}
+
+# ── Record when the package was first imported ────────────────────────────────
+START_TIME: str = datetime.now().isoformat()
+os.environ["{{ pkg_name | upper }}_START"] = START_TIME
+{% if logging_enabled %}
+
+# ── Bootstrap logging so it is available for every subsequent import ──────────
+# ── init() reads LOG_LEVEL, LOG_RETENTION_DAYS, LOG_CONSOLE from .env via     ─
+# ── get_env(), which in turn uses {{ pkg_name | upper }}_ROOT_DIR set above.   ─
+from {{ pkg_name }}.logging import init as _init_logging  # noqa: E402
+
+_init_logging()
+{% endif %}
+{% if env_parsing != "none" %}
+
+# ── Re-export settings so callers can do ``from {{ pkg_name }} import settings`` ─
+from {{ pkg_name }}.config import settings as settings  # noqa: E402, F401
+{% endif %}

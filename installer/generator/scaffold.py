@@ -1,0 +1,158 @@
+from __future__ import annotations
+
+import logging
+import re
+import subprocess
+import tomllib
+from pathlib import Path
+
+from installer.generator.stubs import render_stubs
+from installer.generator.toml_builder import render_toml
+from installer.models.answers import Answers
+
+_log = logging.getLogger(__name__)
+
+
+def create_project(answers: Answers) -> Path:
+    """
+    Build the full project directory structure from the collected answers.
+
+    Returns the path to the created project root.
+    """
+    project_root = Path(answers.target_path)
+    pkg_name = re.sub(r"[^a-zA-Z0-9_]", "_", answers.project_name)
+
+    # ── Directory tree ────────────────────────────────────────────────────────
+    src_pkg = project_root / "src" / pkg_name
+    src_pkg.mkdir(parents=True, exist_ok=True)
+    (project_root / "tests").mkdir(exist_ok=True)
+
+    # ── Source package skeleton ───────────────────────────────────────────────
+    _write(src_pkg / "__main__.py", _main_stub(pkg_name, answers))
+    _write(project_root / "tests" / "__init__.py", "")
+    _write(project_root / "tests" / f"test_{pkg_name}.py", _test_stub(pkg_name))
+
+    # ── pyproject.toml ────────────────────────────────────────────────────────
+    toml_content = render_toml(answers)
+    try:
+        tomllib.loads(toml_content)
+    except tomllib.TOMLDecodeError as exc:
+        raise RuntimeError(
+            f"Generated pyproject.toml is invalid TOML: {exc}\n\n{toml_content}"
+        ) from exc
+    _write(project_root / "pyproject.toml", toml_content)
+
+    # ── .env + configs/ (if env parsing enabled) ─────────────────────────────
+    if answers.env_parsing != "none":
+        _write(project_root / ".env", "# Local overrides — do not commit\n")
+        (project_root / "configs").mkdir(exist_ok=True)
+
+    # ── logs/ (if logging enabled) ────────────────────────────────────────────
+    if answers.logging:
+        (project_root / "logs").mkdir(exist_ok=True)
+
+    # ── Stubs (README, .gitignore, Dockerfile, etc.) ─────────────────────────
+    render_stubs(answers, project_root)
+
+    # ── Secrets baseline (if detect-secrets selected) ────────────────────────
+    if "detect-secrets" in answers.optional_deps:
+        _write_secrets_baseline(project_root)
+
+    # ── Git init ──────────────────────────────────────────────────────────────
+    if answers.git:
+        _git_init(project_root, use_local_hooks=bool(answers.optional_deps))
+
+    return project_root
+
+
+def _write_secrets_baseline(project_root: Path) -> None:
+    """Write a minimal empty ``.secrets.baseline`` compatible with any detect-secrets version."""
+    import json
+    from datetime import datetime, timezone
+
+    baseline = {
+        "version": "1.4.0",
+        "plugins_used": [],
+        "filters_used": [],
+        "results": {},
+        "generated_at": datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    (project_root / ".secrets.baseline").write_text(
+        json.dumps(baseline, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+
+
+def _main_stub(pkg_name: str, answers: Answers) -> str:
+    if answers.logging:
+        lines = [
+            "from __future__ import annotations",
+            "",
+            f"from {pkg_name}.logging import get_logger",
+            "",
+            "logger = get_logger(__name__)",
+            "",
+            "",
+            "def main() -> None:",
+            '    logger.info("Starting %s", __name__)',
+        ]
+    else:
+        lines = [
+            "def main() -> None:",
+            f'    print("Hello from {pkg_name}!")',
+        ]
+
+    lines += [
+        "",
+        "",
+        'if __name__ == "__main__":',
+        "    main()",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _test_stub(pkg_name: str) -> str:
+    return f"""\
+def test_{pkg_name}_placeholder() -> None:
+    \"\"\"Placeholder test — replace with real tests.\"\"\"
+    assert True
+"""
+
+
+def _git_init(project_root: Path, use_local_hooks: bool = False) -> None:
+    try:
+        subprocess.run(
+            ["git", "init", "-b", "main", str(project_root)],
+            check=True,
+            capture_output=True,
+        )
+        if use_local_hooks:
+            subprocess.run(
+                ["git", "-C", str(project_root), "config", "core.hooksPath", ".githooks"],
+                check=True,
+                capture_output=True,
+            )
+        subprocess.run(
+            ["git", "-C", str(project_root), "add", "."],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(project_root),
+                "commit",
+                "-m",
+                "chore: initial project scaffold",
+            ],
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError:
+        pass  # git not available or fails silently — project files are still created
